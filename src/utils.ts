@@ -1,3 +1,22 @@
+/**
+ * Safely parses JSON data, returning the original data if parsing fails.
+ * This is useful for handling WebSocket messages that might be either JSON or plain text.
+ * 
+ * @template T - The expected type of the parsed data
+ * @param data - The string data to parse as JSON
+ * @returns The parsed JSON object of type T, or the original data if parsing fails
+ * 
+ * @example
+ * ```typescript
+ * // Parsing valid JSON
+ * const obj = safeJSONParse<{message: string}>('{"message": "hello"}');
+ * // Returns: {message: "hello"}
+ * 
+ * // Handling plain text
+ * const text = safeJSONParse<string>('plain text message');
+ * // Returns: 'plain text message'
+ * ```
+ */
 export function safeJSONParse<T>(data: string): T {
     try {
         return JSON.parse(data) as T;
