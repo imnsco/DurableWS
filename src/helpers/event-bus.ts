@@ -3,21 +3,21 @@ import type { EventBus } from "@/types";
 /**
  * Creates an event bus for managing event subscriptions and emissions.
  * Provides a simple pub/sub pattern with type-safe event handling.
- * 
+ *
  * @returns EventBus instance with on, off, emit, and once methods
- * 
+ *
  * @example
  * ```typescript
  * const eventBus = defineEventBus();
- * 
+ *
  * // Subscribe to events
  * eventBus.on('user-login', (user) => {
  *   console.log('User logged in:', user);
  * });
- * 
+ *
  * // Emit events
  * eventBus.emit('user-login', { id: 1, name: 'John' });
- * 
+ *
  * // One-time subscription
  * eventBus.once('app-ready', () => {
  *   console.log('App is ready!');
@@ -29,7 +29,7 @@ export function defineEventBus(): EventBus {
 
     /**
      * Subscribes to an event with a handler function.
-     * 
+     *
      * @template T - The type of the event payload
      * @param eventName - The name of the event to listen for
      * @param handler - Function to call when the event is emitted
@@ -45,7 +45,7 @@ export function defineEventBus(): EventBus {
 
     /**
      * Unsubscribes a handler from an event.
-     * 
+     *
      * @template T - The type of the event payload
      * @param eventName - The name of the event to stop listening for
      * @param handler - The handler function to remove
@@ -65,7 +65,7 @@ export function defineEventBus(): EventBus {
     /**
      * Subscribes to an event with a handler that will only be called once.
      * The handler is automatically removed after the first emission.
-     * 
+     *
      * @template T - The type of the event payload
      * @param eventName - The name of the event to listen for
      * @param handler - Function to call when the event is emitted (only once)
@@ -87,7 +87,7 @@ export function defineEventBus(): EventBus {
 
     /**
      * Emits an event to all subscribed handlers.
-     * 
+     *
      * @template T - The type of the event payload
      * @param eventName - The name of the event to emit
      * @param payload - The data to pass to event handlers
