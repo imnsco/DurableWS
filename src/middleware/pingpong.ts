@@ -8,16 +8,16 @@ import type {
 /**
  * Middleware that automatically responds to "ping" messages with "pong".
  * This is commonly used for WebSocket keepalive mechanisms.
- * 
+ *
  * @param ctx - The middleware context containing action and client information
  * @param next - Function to call the next middleware in the chain
  * @returns The result of calling the next middleware
- * 
+ *
  * @example
  * ```typescript
  * // The middleware automatically handles ping/pong
  * client.use(pingpong);
- * 
+ *
  * // When server sends "ping", client automatically responds with "pong"
  * ```
  */
@@ -31,11 +31,11 @@ export const pingpong: Middleware = (ctx, next) => {
 /**
  * Middleware that logs all actions passing through the middleware chain.
  * Useful for debugging and monitoring WebSocket client activity.
- * 
+ *
  * @param ctx - The middleware context containing action information
  * @param next - Function to call the next middleware in the chain
  * @returns Promise that resolves with the result of the next middleware
- * 
+ *
  * @example
  * ```typescript
  * client.use(logger);
