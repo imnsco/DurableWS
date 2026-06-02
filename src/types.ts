@@ -93,6 +93,13 @@ export interface EventBus {
      * @param payload - The payload to send with the event.
      */
     emit<T = unknown>(eventName: string, payload?: T): void;
+
+    /**
+     * Subscribes to an event that will be automatically unsubscribed after first trigger.
+     * @param eventName - The name of the event.
+     * @param handler - The function to handle the event.
+     */
+    once<T = unknown>(eventName: string, handler: (payload: T) => void): void;
 }
 
 /**
