@@ -311,9 +311,11 @@ Structural only — no behavior change to the library.
   (access: public); lefthook pre-commit; `engines` corrected to Node ≥22;
   `tsconfig` `baseUrl` anti-pattern removed. (commits `5b1c7c9`, `0fbd214`,
   `a4d4b2a`)
-- 🚧 **Slice 3 — OSS hygiene.** README correction (durability features framed
-  as roadmap; Node ≥22 stated); CONTRIBUTING (incl. `durablews-plugin-*`
-  naming convention); SECURITY; CODE_OF_CONDUCT; issue/PR templates.
+- ✅ **Slice 3 — OSS hygiene.** Corrected package README (durability features
+  framed as roadmap; Node ≥22 stated) + root README; CONTRIBUTING (incl. the
+  `durablews-plugin-*` naming convention and changesets workflow); SECURITY;
+  Contributor Covenant CODE_OF_CONDUCT; issue forms + PR template.
+  (commit `12012c1`)
 - ⬜ **Slice 4 — Docs site.** Astro 5 + Starlight scaffold; RFC content
   collection (migrate this document in); deploy to Cloudflare Workers via CI.
 
