@@ -299,7 +299,7 @@ This section is the **live execution tracker** — the project uses doc-based
 tracking (no GitHub issue board), so this is kept current as work lands.
 Status: ✅ done · 🚧 in progress · ⬜ not started.
 
-### M1 — Repo foundation 🚧
+### M1 — Repo foundation ✅
 
 Structural only — no behavior change to the library.
 
@@ -317,12 +317,13 @@ Structural only — no behavior change to the library.
   `durablews-plugin-*` naming convention and changesets workflow); SECURITY;
   Contributor Covenant CODE_OF_CONDUCT; issue forms + PR template.
   (commit `12012c1`)
-- 🚧 **Slice 4 — Docs site.** Astro 5 + Starlight site in `docs/` (user-facing
+- ✅ **Slice 4 — Docs site.** Astro 5 + Starlight site in `docs/` (user-facing
   content only — landing + getting-started); RFCs kept as repo-internal
-  `rfcs/` markdown (site publishing of RFCs deferred to M4). Static site
-  deployed to Cloudflare Workers (Workers Static Assets via `wrangler.jsonc`),
-  domain `durablews.imns.co`; deploy workflow gated on a `DOCS_DEPLOY_ENABLED`
-  repo variable until CF secrets + DNS are set.
+  `rfcs/` markdown (site publishing of RFCs deferred to M4). Static site set up
+  for Cloudflare Workers (Workers Static Assets via `wrangler.jsonc`), domain
+  `durablews.imns.co`; deploy workflow gated on a `DOCS_DEPLOY_ENABLED` repo
+  variable until CF secrets + DNS are set. Added a required `Docs` CI job.
+  (commit `ce286df`)
 
 ### M2 — Core rewrite & correctness ⬜
 

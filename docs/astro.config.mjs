@@ -13,15 +13,17 @@ export default defineConfig({
                 {
                     icon: "github",
                     label: "GitHub",
-                    href: "https://github.com/imnsco/DurableWS"
-                }
+                    href: "https://github.com/imnsco/DurableWS",
+                },
             ],
             sidebar: [
                 {
                     label: "Start here",
-                    items: [{ label: "Getting started", slug: "getting-started" }]
-                }
-            ]
-        })
-    ]
+                    items: [
+                        { label: "Getting started", slug: "getting-started" },
+                    ],
+                },
+            ],
+        }),
+    ],
 });
