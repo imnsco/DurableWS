@@ -28,12 +28,12 @@ pnpm -F durablews build      # tsup build
 pnpm typecheck               # tsc --noEmit
 pnpm lint                    # Biome check
 pnpm format                  # Biome format (write)
-pnpm ci                      # run the full CI gate locally
+pnpm verify                      # run the full CI gate locally
 ```
 
 - **Formatting & linting** is handled by [Biome](https://biomejs.dev). A [lefthook](https://lefthook.dev) pre-commit hook runs Biome on staged files automatically, so commits stay formatted.
 - **Tests** use [Vitest](https://vitest.dev). New behavior needs tests; assert on observable state/outcomes, not merely that an event fired.
-- **CI** runs Biome, typecheck, build, tests, and publish validation (publint + are-the-types-wrong) on Node 22 and 24. Run `pnpm ci` before pushing.
+- **CI** runs Biome, typecheck, build, tests, and publish validation (publint + are-the-types-wrong) on Node 22 and 24. Run `pnpm verify` before pushing.
 
 ## Commit messages
 
@@ -53,7 +53,7 @@ Pick the appropriate semver bump and write a short, user-facing summary. Tooling
 
 1. Branch from `main`.
 2. Make your change with tests and (if user-facing) a changeset.
-3. Ensure `pnpm ci` passes.
+3. Ensure `pnpm verify` passes.
 4. Open a PR against `main` and fill out the template.
 
 ## Plugins & add-ons
