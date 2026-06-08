@@ -1,9 +1,13 @@
+import cloudflare from "@astrojs/cloudflare";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
     site: "https://durablews.imns.co",
+    adapter: cloudflare({
+        imageService: "compile",
+    }),
     integrations: [
         starlight({
             title: "DurableWS",

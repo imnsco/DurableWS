@@ -1,9 +1,12 @@
 {
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "durablews-docs",
-    // Static Starlight site — served via Workers Static Assets, no Worker script.
+    // Built with the @astrojs/cloudflare adapter (emits dist/_worker.js).
+    "main": "./dist/_worker.js/index.js",
     "compatibility_date": "2026-06-08",
+    "compatibility_flags": ["nodejs_compat"],
     "assets": {
+        "binding": "ASSETS",
         "directory": "./dist"
     },
     "observability": {
