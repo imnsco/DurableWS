@@ -12,7 +12,7 @@ Thanks for your interest in contributing! DurableWS is being built in the open, 
 ## Getting started
 
 ```bash
-git clone https://github.com/imns/durablews.git
+git clone https://github.com/imnsco/DurableWS.git
 cd durablews
 pnpm install        # installs deps and sets up the git hooks
 ```

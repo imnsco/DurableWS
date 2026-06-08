@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question / discussion
-    url: https://github.com/imns/durablews/discussions
+    url: https://github.com/imnsco/DurableWS/discussions
     about: Ask questions and discuss ideas in Discussions.
   - name: Report a security vulnerability
-    url: https://github.com/imns/durablews/security/advisories/new
+    url: https://github.com/imnsco/DurableWS/security/advisories/new
     about: Please report security issues privately — do not open a public issue.
