@@ -2,7 +2,7 @@
 
 > A resilient, modern, zero-dependency WebSocket **client** for TypeScript — "the Hono of WebSockets." Built on the standard `WebSocket`, durable by default, and the same in every modern runtime (browser, Node ≥22, Deno, Bun, edge).
 
-> ⚠️ **v2 is under active development.** See [RFC 0001](docs/rfc/0001-v2-architecture.md) for the architecture and a live status tracker. The current npm release (`1.x`) predates this redesign.
+> ⚠️ **v2 is under active development.** See [RFC 0001](rfcs/0001-v2-architecture.md) for the architecture and a live status tracker. The current npm release (`1.x`) predates this redesign.
 
 The published library lives in **[`packages/durablews`](packages/durablews)** — see its [README](packages/durablews/README.md) for usage, the feature status, and requirements.
 

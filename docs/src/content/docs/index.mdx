@@ -1,0 +1,41 @@
+---
+title: DurableWS
+description: A resilient, zero-dependency WebSocket client for TypeScript — durable by default.
+template: splash
+hero:
+  tagline: The Hono of WebSockets — tiny, ergonomic, built on the standard WebSocket, and durable by default.
+  actions:
+    - text: Get started
+      link: /getting-started/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/imnsco/DurableWS
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+:::caution[Alpha]
+v2 (`2.0.0-alpha`) is under active development. The API is changing and several
+headline features below are still being built — see the
+[architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
+for the design and live status.
+:::
+
+<CardGrid stagger>
+	<Card title="Durable by default" icon="random">
+		Automatic reconnection, message queueing, and idle detection — designed
+		to work out of the box, no wiring required.
+	</Card>
+	<Card title="Zero dependencies" icon="rocket">
+		Built on the standard global `WebSocket`. No `ws`, no bloat. Works in
+		browsers, Node ≥22, Deno, Bun, and the edge.
+	</Card>
+	<Card title="Extensible" icon="puzzle">
+		A middleware + codec pipeline for custom wire formats, auth, and more.
+	</Card>
+	<Card title="TypeScript-first" icon="open-book">
+		Fully typed, dual ESM + CJS, with accurate type resolution.
+	</Card>
+</CardGrid>

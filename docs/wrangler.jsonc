@@ -1,0 +1,14 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "durablews-docs",
+    // Static Starlight site — served via Workers Static Assets, no Worker script.
+    "compatibility_date": "2026-06-08",
+    "assets": {
+        "directory": "./dist"
+    },
+    "observability": {
+        "enabled": true
+    },
+    "keep_vars": true,
+    "routes": [{ "pattern": "durablews.imns.co", "custom_domain": true }]
+}

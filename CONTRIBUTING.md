@@ -2,7 +2,7 @@
 
 Thanks for your interest in contributing! DurableWS is being built in the open, and contributions — issues, docs, fixes, features — are welcome.
 
-> **Heads up:** v2 is under active redesign. Before starting non-trivial work, please read [RFC 0001](docs/rfc/0001-v2-architecture.md) (the architecture and live status) and open an issue to discuss, so effort isn't spent on something the redesign changes.
+> **Heads up:** v2 is under active redesign. Before starting non-trivial work, please read [RFC 0001](rfcs/0001-v2-architecture.md) (the architecture and live status) and open an issue to discuss, so effort isn't spent on something the redesign changes.
 
 ## Prerequisites
 

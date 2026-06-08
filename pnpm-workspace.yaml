@@ -1,5 +1,8 @@
 packages:
   - "packages/*"
+  - "docs"
 allowBuilds:
   esbuild: true
   lefthook: true
+  sharp: true
+  workerd: true

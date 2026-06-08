@@ -2,7 +2,7 @@
 
 > A resilient, modern, zero-dependency WebSocket **client** for TypeScript — built on the standard `WebSocket`, durable by default, and the same in every modern runtime.
 
-> ⚠️ **v2 is under active development (`2.0.0-alpha`).** The API is changing and several headline features below are still being built. See the [v2 architecture RFC](https://github.com/imnsco/DurableWS/blob/main/docs/rfc/0001-v2-architecture.md) for the design and live status. The current npm release (`1.x`) predates this redesign.
+> ⚠️ **v2 is under active development (`2.0.0-alpha`).** The API is changing and several headline features below are still being built. See the [v2 architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md) for the design and live status. The current npm release (`1.x`) predates this redesign.
 
 DurableWS aims to be "the Hono of WebSockets": tiny, ergonomic, Web-Standards-based, and **durable by default** — automatic reconnection, message queueing, and idle detection out of the box — with a middleware + codec pipeline for extensibility (custom wire formats, auth, a socket.io-compatibility layer, and more).
 
@@ -62,7 +62,7 @@ client.close();
 
 ## Documentation
 
-- [v2 architecture RFC](https://github.com/imnsco/DurableWS/blob/main/docs/rfc/0001-v2-architecture.md)
+- [v2 architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 - A full documentation site (Astro + Starlight) is coming as part of v2.
 
 ## Contributing
