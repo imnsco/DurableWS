@@ -10,7 +10,13 @@
         "test:run": "pnpm -F durablews test:run",
         "typecheck": "pnpm -F durablews typecheck",
         "lint": "biome check .",
-        "format": "biome format --write ."
+        "format": "biome format --write .",
+        "check:publish": "pnpm -F durablews check:publish",
+        "ci": "biome ci . && pnpm typecheck && pnpm build && pnpm test:run && pnpm check:publish",
+        "changeset": "changeset",
+        "release:version": "changeset version",
+        "release:publish": "pnpm build && changeset publish",
+        "prepare": "lefthook install"
     },
     "engines": {
         "node": ">=20"
@@ -23,6 +29,8 @@
         "url": "https://github.com/imns/durablews.git"
     },
     "devDependencies": {
-        "@biomejs/biome": "^2.4.16"
+        "@biomejs/biome": "^2.4.16",
+        "@changesets/cli": "^2.31.0",
+        "lefthook": "^2.1.9"
     }
 }

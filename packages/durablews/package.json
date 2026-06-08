@@ -29,13 +29,17 @@
         "test": "vitest",
         "test:run": "vitest run",
         "typecheck": "tsc --noEmit",
+        "check:publish": "publint && attw --pack .",
         "prepublishOnly": "pnpm build"
     },
     "author": "Nate Smith (https://imns.co/)",
     "license": "MPL-2.0",
+    "engines": {
+        "node": ">=20"
+    },
     "repository": {
         "type": "git",
-        "url": "https://github.com/imns/durablews.git",
+        "url": "git+https://github.com/imns/durablews.git",
         "directory": "packages/durablews"
     },
     "bugs": {
@@ -64,8 +68,10 @@
         "websockets"
     ],
     "devDependencies": {
+        "@arethetypeswrong/cli": "^0.18.3",
         "@types/node": "^20.11.17",
         "jsdom": "^24.0.0",
+        "publint": "^0.3.21",
         "tsup": "^8.5.1",
         "typescript": "^5.3.3",
         "vitest": "^1.2.2",
