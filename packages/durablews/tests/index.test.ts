@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { defineClient } from "../src/index";
 import type { WebSocketClient } from "../src/types";
 

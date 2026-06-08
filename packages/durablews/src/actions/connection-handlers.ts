@@ -1,5 +1,5 @@
-import { ClientState, SocketState } from "@/types";
 import { composeActions } from "@/helpers/store";
+import { type ClientState, SocketState } from "@/types";
 
 /**
  * Creates an action handler for the "connecting" event.

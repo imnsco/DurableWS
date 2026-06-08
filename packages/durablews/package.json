@@ -1,0 +1,74 @@
+{
+    "name": "durablews",
+    "version": "2.0.0-alpha.0",
+    "description": "A resilient, TypeScript-based WebSocket client",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        }
+    },
+    "sideEffects": false,
+    "files": [
+        "dist",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "typecheck": "tsc --noEmit",
+        "prepublishOnly": "pnpm build"
+    },
+    "author": "Nate Smith (https://imns.co/)",
+    "license": "MPL-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/imns/durablews.git",
+        "directory": "packages/durablews"
+    },
+    "bugs": {
+        "url": "https://github.com/imns/durablews/issues"
+    },
+    "homepage": "https://github.com/imns/durablews#readme",
+    "keywords": [
+        "websocket",
+        "typescript",
+        "websocket-client",
+        "real-time",
+        "connection-recovery",
+        "automatic-reconnection",
+        "message-queueing",
+        "idle-detection",
+        "subscription-management",
+        "authentication",
+        "durable",
+        "resilient",
+        "real-time-communication",
+        "websocket-connection",
+        "websocket-authentication",
+        "typescript-library",
+        "network-resilience",
+        "event-handling",
+        "websockets"
+    ],
+    "devDependencies": {
+        "@types/node": "^20.11.17",
+        "jsdom": "^24.0.0",
+        "tsup": "^8.5.1",
+        "typescript": "^5.3.3",
+        "vitest": "^1.2.2",
+        "vitest-websocket-mock": "^0.3.0"
+    }
+}

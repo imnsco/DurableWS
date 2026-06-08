@@ -1,16 +1,16 @@
-import type {
-    WebSocketClientConfig,
-    ClientState,
-    WebSocketClient,
-    Store,
-    Middleware
-} from "@/types";
-import { SocketState } from "@/types";
-import { defineStore } from "@/helpers/store";
-import { safeJSONParse } from "@/utils";
 import connectionActions from "@/actions/connection-handlers";
 import { onMessage } from "@/actions/message-handlers";
-import { pingpong, logger } from "@/middleware/pingpong";
+import { defineStore } from "@/helpers/store";
+import { logger, pingpong } from "@/middleware/pingpong";
+import type {
+    ClientState,
+    Middleware,
+    Store,
+    WebSocketClient,
+    WebSocketClientConfig
+} from "@/types";
+import { SocketState } from "@/types";
+import { safeJSONParse } from "@/utils";
 
 /**
  * Creates a WebSocket client with state management, middleware support, and event handling.

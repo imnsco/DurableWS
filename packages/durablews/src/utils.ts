@@ -20,7 +20,7 @@
 export function safeJSONParse<T>(data: string): T {
     try {
         return JSON.parse(data) as T;
-    } catch (error) {
+    } catch (_error) {
         return data as T;
     }
 }

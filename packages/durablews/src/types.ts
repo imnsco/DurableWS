@@ -126,9 +126,7 @@ export interface Action<T = Payload> {
 /**
  * A function that updates the state in response to an event.
  */
-export interface HandlerFn<S> {
-    (state: S, payload: unknown): S | void;
-}
+export type HandlerFn<S> = (state: S, payload: unknown) => S | undefined;
 
 /**
  * Function signature for the next middleware or final action.

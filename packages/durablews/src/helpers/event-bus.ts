@@ -94,7 +94,9 @@ export function defineEventBus(): EventBus {
      */
     function emit<T = unknown>(eventName: string, payload: T) {
         const handlers = listeners.get(eventName);
-        handlers?.forEach((fn) => fn(payload));
+        handlers?.forEach((fn) => {
+            fn(payload);
+        });
     }
 
     return { on, off, emit, once };

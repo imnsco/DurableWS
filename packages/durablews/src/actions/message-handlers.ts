@@ -1,4 +1,4 @@
-import { ClientState, Payload } from "@/types";
+import type { ClientState, Payload } from "@/types";
 
 /**
  * Handles incoming WebSocket messages by adding them to the client state.

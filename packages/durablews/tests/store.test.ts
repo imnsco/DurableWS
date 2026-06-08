@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineStore } from "../src/helpers/store";
 
 // Define a type for the message
@@ -74,8 +74,8 @@ describe("Store", () => {
     });
 
     it("should execute middleware in order", async () => {
-        const middleware1 = vi.fn((ctx, next) => next());
-        const middleware2 = vi.fn((ctx, next) => next());
+        const middleware1 = vi.fn((_ctx, next) => next());
+        const middleware2 = vi.fn((_ctx, next) => next());
 
         store.use(middleware1, middleware2);
 
@@ -119,7 +119,7 @@ describe("Store", () => {
     });
 
     it("should handle async middleware with next()", async () => {
-        const middleware = vi.fn(async (ctx, next) => {
+        const middleware = vi.fn(async (_ctx, next) => {
             await new Promise((resolve) => setTimeout(resolve, 10));
             return next();
         });
@@ -140,7 +140,7 @@ describe("Store", () => {
     });
 
     it("should handle async middleware with await next()", async () => {
-        const middleware = vi.fn(async (ctx, next) => {
+        const middleware = vi.fn(async (_ctx, next) => {
             await new Promise((resolve) => setTimeout(resolve, 10));
             await next();
         });

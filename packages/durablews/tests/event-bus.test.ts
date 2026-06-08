@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineEventBus } from "../src/helpers/event-bus";
 import type { EventBus } from "../src/types";
 

@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // https://github.com/akiomik/vitest-websocket-mock
 import WS from "vitest-websocket-mock";
 import { client } from "../src/client";
-import type { WebSocketClient } from "../src/types";
 import { pingpong } from "../src/middleware/pingpong";
+import type { WebSocketClient } from "../src/types";
+
 const WEBSOCKET_URL = "ws://localhost:1234";
 
 // Helper: Wait for a given amount of milliseconds

@@ -1,4 +1,3 @@
-import { defineEventBus } from "./event-bus";
 import type {
     Action,
     HandlerFn,
@@ -6,6 +5,7 @@ import type {
     MiddlewareContext,
     Store
 } from "@/types";
+import { defineEventBus } from "./event-bus";
 
 /**
  * Compose a list of actions into a single list of { event, handler } pairs.
@@ -80,7 +80,9 @@ export function defineStore<S>(initialState: S): Store<S> {
     function defineActions(
         actions: Array<{ event: string; handler: HandlerFn<S> }>
     ) {
-        actions.forEach(({ event, handler }) => defineAction(event, handler));
+        actions.forEach(({ event, handler }) => {
+            defineAction(event, handler);
+        });
     }
 
     // Add one or more middleware functions
