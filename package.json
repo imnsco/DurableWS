@@ -26,7 +26,7 @@
     "license": "MPL-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/imns/durablews.git"
+        "url": "https://github.com/imnsco/DurableWS.git"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.4.16",

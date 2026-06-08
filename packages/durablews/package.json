@@ -39,13 +39,13 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/imns/durablews.git",
+        "url": "git+https://github.com/imnsco/DurableWS.git",
         "directory": "packages/durablews"
     },
     "bugs": {
-        "url": "https://github.com/imns/durablews/issues"
+        "url": "https://github.com/imnsco/DurableWS/issues"
     },
-    "homepage": "https://github.com/imns/durablews#readme",
+    "homepage": "https://github.com/imnsco/DurableWS#readme",
     "keywords": [
         "websocket",
         "typescript",
