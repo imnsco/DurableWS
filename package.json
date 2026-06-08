@@ -12,7 +12,7 @@
         "lint": "biome check .",
         "format": "biome format --write .",
         "check:publish": "pnpm -F durablews check:publish",
-        "ci": "biome ci . && pnpm typecheck && pnpm build && pnpm test:run && pnpm check:publish",
+        "verify": "biome ci . && pnpm typecheck && pnpm build && pnpm test:run && pnpm check:publish",
         "changeset": "changeset",
         "release:version": "changeset version",
         "release:publish": "pnpm build && changeset publish",

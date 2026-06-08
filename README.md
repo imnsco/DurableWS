@@ -33,7 +33,7 @@ pnpm -F durablews build   # tsup build (ESM + CJS + types)
 pnpm typecheck            # tsc --noEmit
 pnpm lint                 # Biome
 pnpm format               # Biome (write)
-pnpm ci                   # everything CI runs, locally
+pnpm verify               # everything CI runs, locally
 ```
 
 Commits are formatted automatically by a [lefthook](https://lefthook.dev) pre-commit hook (Biome). Versioning and releases use [changesets](https://github.com/changesets/changesets).
