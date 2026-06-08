@@ -50,8 +50,9 @@ v1 has no users, so v2 is free to break the API.
 - Durable by default: reconnection w/ exponential backoff, message queueing, and
   idle detection work out of the box with zero configuration.
 - Zero runtime dependencies in core.
-- Multi-runtime via the standard global `WebSocket`: browser, modern Node,
-  Deno, Bun, edge. **Proven by cross-runtime e2e tests, not merely claimed.**
+- Multi-runtime via the standard global `WebSocket`: browser, Node ≥22 (the
+  floor where the global `WebSocket` ships unflagged), Deno, Bun, edge.
+  **Proven by cross-runtime e2e tests, not merely claimed.**
 - Tiny, intuitive primary API. A new user receives messages and stays connected
   without learning any internal machinery.
 - A clean, powerful extension story (middleware + codecs + plugins).
@@ -287,28 +288,51 @@ that hid the v1 close bug).
 - **Branch strategy:** work on `main` during v2 development (no users to
   protect); once v2 lands, lock `main` and require PRs (branch protection).
 
-## 8. Milestones
+## 8. Implementation plan & status
 
 OSS hygiene, tooling, CI, and docs *infrastructure* are **foundational, not a
 trailing phase** — they land up front and are treated as first-class. Only API
 *documentation content* trails, because it requires a stable API.
 
-- **M1 — Repo foundation.** pnpm monorepo scaffold; full tooling (formatter +
-  linter, build, release/versioning, package-publish validation, Git hooks);
-  OSS hygiene (CONTRIBUTING incl. plugin naming convention, SECURITY,
-  CODE_OF_CONDUCT, issue/PR templates, CHANGELOG); CI on **PRs** (typecheck +
-  lint + build + test-pyramid skeleton + publish validation); Astro 5/Starlight
-  site scaffold with the **RFC content collection**, deployed to Cloudflare
-  Workers. Structural only — no behavior change.
-- **M2 — Core rewrite & correctness.** Typed connection FSM; codec seam;
-  middleware pipeline retained; event delivery; drop singleton caching; remove
-  messages-in-state; fix the close/error bug; strip console noise. Full test
-  pyramid populated for the core. Everything green.
-- **M3 — Durability.** Reconnection + exponential backoff, message queueing,
-  idle detection — on by default, each with unit + integration + e2e coverage.
-- **M4 — Docs content, first add-ons & 2.0 release.** API reference + guides +
-  migration content on the site; first codecs/middleware/plugins as subpath
-  exports; automated npm release of `durablews@2.0.0`.
+This section is the **live execution tracker** — the project uses doc-based
+tracking (no GitHub issue board), so this is kept current as work lands.
+Status: ✅ done · 🚧 in progress · ⬜ not started.
+
+### M1 — Repo foundation 🚧
+
+Structural only — no behavior change to the library.
+
+- ✅ **Slice 1 — Monorepo scaffold + core tooling.** pnpm workspace; library
+  moved to `packages/durablews`; Vite library-mode → tsup (ESM + CJS + dual
+  `.d.ts`); ESLint + Prettier → Biome; package set to `2.0.0-alpha.0`.
+  (commit `fe6faae`)
+- ✅ **Slice 2 — CI, release & publish tooling.** CI on PRs + pushes (Node
+  22/24 matrix; Biome, typecheck, build, test, publint + attw); changesets
+  (access: public); lefthook pre-commit; `engines` corrected to Node ≥22;
+  `tsconfig` `baseUrl` anti-pattern removed. (commits `5b1c7c9`, `0fbd214`,
+  `a4d4b2a`)
+- 🚧 **Slice 3 — OSS hygiene.** README correction (durability features framed
+  as roadmap; Node ≥22 stated); CONTRIBUTING (incl. `durablews-plugin-*`
+  naming convention); SECURITY; CODE_OF_CONDUCT; issue/PR templates.
+- ⬜ **Slice 4 — Docs site.** Astro 5 + Starlight scaffold; RFC content
+  collection (migrate this document in); deploy to Cloudflare Workers via CI.
+
+### M2 — Core rewrite & correctness ⬜
+
+Typed connection FSM; codec seam; middleware pipeline retained; event delivery;
+drop singleton caching; remove messages-in-state; fix the close/error bug; strip
+console noise. Full test pyramid populated for the core. Everything green.
+
+### M3 — Durability ⬜
+
+Reconnection + exponential backoff, message queueing, idle detection — on by
+default, each with unit + integration + e2e coverage.
+
+### M4 — Docs content, first add-ons & 2.0 release ⬜
+
+API reference + guides + migration content on the site; first
+codecs/middleware/plugins as subpath exports; automated npm release of
+`durablews@2.0.0`.
 
 ## 9. Open questions
 
