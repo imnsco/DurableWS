@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a problem with DurableWS
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Note that v2 is under active development, so some behavior is still changing.
+  - type: input
+    id: version
+    attributes:
+      label: DurableWS version
+      placeholder: "2.0.0-alpha.0 / main @ <commit>"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - Browser
+        - Node.js
+        - Deno
+        - Bun
+        - Cloudflare Workers
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: runtime-version
+    attributes:
+      label: Runtime version
+      placeholder: "Node 22.17.0 / Chrome 126 / ..."
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Steps, or a minimal code sample / repo, that reproduces the issue.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      render: shell

@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an idea or enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the [v2 architecture RFC](https://github.com/imns/durablews/blob/main/docs/rfc/0001-v2-architecture.md) — your idea may already be planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and what's missing or painful today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core client
+        - Reconnection / durability
+        - Middleware
+        - Codecs
+        - Plugins (channels, presence, ...)
+        - Types
+        - Docs
+        - Other
