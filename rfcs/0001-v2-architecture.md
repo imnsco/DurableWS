@@ -221,17 +221,18 @@ durablews/                 (repo root, pnpm workspace)
         ...
       package.json         ← files: ["dist"], subpath exports
   docs/                    ← Astro 5 + Starlight site (deployed to CF Workers)
-    src/content/
-      docs/                ← guides, reference, getting-started
-      rfcs/                ← RFC content collection (this document lives here)
+    src/content/docs/      ← user-facing docs: guides, reference, getting-started
+  rfcs/                    ← design RFCs (repo-internal markdown; this document)
   examples/                ← runnable examples / playgrounds
 ```
 
-**RFCs are an Astro content collection**, not a stray folder — modelled on the
-Vue RFC site. The collection has its own schema (frontmatter: `status`,
-`author`, `created`, `supersedes`, etc.) and is the durable mechanism for all
-future design changes, rendered on the docs site. This document's frontmatter
-will be normalized to that schema when the site is scaffolded.
+**RFCs live as repo-internal markdown in top-level `rfcs/`** (not on the
+published docs site, for now). RFC 0001 currently doubles as the live
+implementation tracker (§8), which is a contributor artifact rather than
+polished public content, so the Starlight site ships user-facing docs only in
+M1. Publishing RFCs to the site — e.g. as a dedicated Astro content collection
+with its own schema, Vue-RFC-style — is revisited in M4 once the API and this
+document's role have stabilized.
 
 ### Third-party plugin naming convention
 
@@ -316,8 +317,12 @@ Structural only — no behavior change to the library.
   `durablews-plugin-*` naming convention and changesets workflow); SECURITY;
   Contributor Covenant CODE_OF_CONDUCT; issue forms + PR template.
   (commit `12012c1`)
-- ⬜ **Slice 4 — Docs site.** Astro 5 + Starlight scaffold; RFC content
-  collection (migrate this document in); deploy to Cloudflare Workers via CI.
+- 🚧 **Slice 4 — Docs site.** Astro 5 + Starlight site in `docs/` (user-facing
+  content only — landing + getting-started); RFCs kept as repo-internal
+  `rfcs/` markdown (site publishing of RFCs deferred to M4). Static site
+  deployed to Cloudflare Workers (Workers Static Assets via `wrangler.jsonc`),
+  domain `durablews.imns.co`; deploy workflow gated on a `DOCS_DEPLOY_ENABLED`
+  repo variable until CF secrets + DNS are set.
 
 ### M2 — Core rewrite & correctness ⬜
 

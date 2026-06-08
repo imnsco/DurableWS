@@ -1,0 +1,56 @@
+name: Deploy docs
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/deploy-docs.yml"
+
+jobs:
+  deploy:
+    # Runs only when a docs PR is *merged* AND deployment has been explicitly
+    # enabled. Set the repo variable DOCS_DEPLOY_ENABLED=true once the
+    # CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID secrets and DNS are in place.
+    if: ${{ github.event.pull_request.merged == true && vars.DOCS_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: docs-deploy
+      cancel-in-progress: true
+    steps:
+      - name: Checkout merge commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build docs
+        run: pnpm -F docs build
+
+      - name: Deploy to Cloudflare Workers
+        working-directory: docs
+        run: pnpm exec wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify deployment
+        run: |
+          echo "🚀 Docs deployed"
+          sleep 10
+          code=$(curl -s -o /dev/null -w "%{http_code}" https://durablews.imns.co)
+          echo "HTTP $code from https://durablews.imns.co"
+          if [ "$code" = "200" ]; then echo "✅ accessible"; else echo "⚠️ HTTP $code (may still be propagating)"; fi
