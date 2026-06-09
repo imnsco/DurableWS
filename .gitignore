@@ -271,3 +271,8 @@ $RECYCLE.BIN/
 
 # Cloudflare / wrangler
 .wrangler/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
