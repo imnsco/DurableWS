@@ -8,7 +8,7 @@
  */
 export interface Codec {
     /** Encode an outgoing value into a WebSocket-sendable frame. */
-    encode(data: unknown): string | ArrayBufferLike | Blob | ArrayBufferView;
+    encode(data: unknown): string | ArrayBuffer | Blob | ArrayBufferView;
     /** Decode an incoming frame (`string` for text, `ArrayBuffer`/`Blob` for binary). */
     decode(data: unknown): unknown;
 }

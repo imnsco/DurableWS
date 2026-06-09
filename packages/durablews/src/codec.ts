@@ -17,9 +17,7 @@ function safeJSONParse(data: string): unknown {
  * passed through rather than JSON-encoded (`ArrayBuffer`, any typed array or
  * `DataView`, or a `Blob`).
  */
-function isBinary(
-    data: unknown
-): data is ArrayBufferLike | ArrayBufferView | Blob {
+function isBinary(data: unknown): data is ArrayBuffer | ArrayBufferView | Blob {
     return (
         data instanceof ArrayBuffer ||
         ArrayBuffer.isView(data) ||
