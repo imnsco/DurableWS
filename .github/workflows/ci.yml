@@ -45,6 +45,28 @@ jobs:
       - name: tsc --noEmit
         run: pnpm -F durablews typecheck
 
+  # Advisory: type-checks against typescript@next so upcoming-TS breakage
+  # (e.g. TS 6's stricter WebSocket.send) is visible early. Deliberately NOT in
+  # the branch ruleset's required checks — a nightly compiler must not gate
+  # merges. continue-on-error keeps the workflow run green if it fails.
+  typecheck-next:
+    name: Typecheck (next, advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: tsc --noEmit (typescript@next)
+        run: pnpm -F durablews typecheck:next
+
   test:
     name: Test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest

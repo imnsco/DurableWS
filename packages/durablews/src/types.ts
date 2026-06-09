@@ -7,8 +7,15 @@
  * for binary protocols, schema-based formats, etc.
  */
 export interface Codec {
-    /** Encode an outgoing value into a WebSocket-sendable frame. */
-    encode(data: unknown): string | ArrayBuffer | Blob | ArrayBufferView;
+    /**
+     * Encode an outgoing value into a WebSocket-sendable frame.
+     *
+     * The return type deliberately mirrors `WebSocket.send`'s parameter
+     * (`BufferSource` is its exact alias), so the codec contract can never
+     * drift looser than what the socket accepts — e.g. TS 6's lib excludes
+     * `SharedArrayBuffer`-backed views from `send`, and this excludes them too.
+     */
+    encode(data: unknown): string | BufferSource | Blob;
     /** Decode an incoming frame (`string` for text, `ArrayBuffer`/`Blob` for binary). */
     decode(data: unknown): unknown;
 }

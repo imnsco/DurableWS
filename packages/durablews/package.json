@@ -31,6 +31,7 @@
         "e2e": "pnpm run build && playwright test",
         "e2e:install": "playwright install --with-deps chromium",
         "typecheck": "tsc --noEmit",
+        "typecheck:next": "pnpm --package=typescript@next dlx tsc --noEmit",
         "check:publish": "publint && attw --pack .",
         "prepublishOnly": "pnpm build"
     },
