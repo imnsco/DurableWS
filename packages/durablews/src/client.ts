@@ -1,3 +1,4 @@
+import { jsonCodec } from "@/codec";
 import { nextState } from "@/fsm";
 import { defineEventBus } from "@/helpers/event-bus";
 import type {
@@ -8,7 +9,6 @@ import type {
     WebSocketClient,
     WebSocketClientConfig
 } from "@/types";
-import { safeJSONParse } from "@/utils";
 
 /**
  * Creates a WebSocket client driven by an explicit connection FSM.
@@ -29,6 +29,7 @@ import { safeJSONParse } from "@/utils";
  */
 export function client(config: WebSocketClientConfig): WebSocketClient {
     const bus = defineEventBus();
+    const codec = config.codec ?? jsonCodec;
 
     let socket: WebSocket | null = null;
     let state: ConnectionState = "idle";
@@ -82,7 +83,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         };
 
         socket.onmessage = (event: MessageEvent) => {
-            bus.emit("message", safeJSONParse<unknown>(event.data));
+            bus.emit("message", codec.decode(event.data));
         };
 
         socket.onerror = (event: Event) => {
@@ -159,7 +160,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
                     `Cannot send: connection is not open (state: "${state}")`
                 );
             }
-            socket.send(typeof data === "string" ? data : JSON.stringify(data));
+            socket.send(codec.encode(data));
         },
 
         close(code?: number, reason?: string) {

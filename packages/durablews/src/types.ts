@@ -1,4 +1,19 @@
 /**
+ * Translates between application values and WebSocket wire frames.
+ *
+ * The codec is the single seam where serialization lives: `send()` runs values
+ * through `encode`, and incoming frames are run through `decode` before being
+ * emitted as `message`. The default is JSON (see `codec.ts`); supply your own
+ * for binary protocols, schema-based formats, etc.
+ */
+export interface Codec {
+    /** Encode an outgoing value into a WebSocket-sendable frame. */
+    encode(data: unknown): string | ArrayBufferLike | Blob | ArrayBufferView;
+    /** Decode an incoming frame (`string` for text, `ArrayBuffer`/`Blob` for binary). */
+    decode(data: unknown): unknown;
+}
+
+/**
  * Configuration options for the WebSocket client.
  */
 export interface WebSocketClientConfig {
@@ -6,6 +21,8 @@ export interface WebSocketClientConfig {
     readonly url: string | URL;
     /** Optional subprotocol(s) passed to the underlying `WebSocket`. */
     readonly protocols?: string | string[];
+    /** Wire-format codec. Defaults to JSON (`jsonCodec`). */
+    readonly codec?: Codec;
 }
 
 /**

@@ -95,6 +95,28 @@ describe("client", () => {
         );
     });
 
+    it("uses a custom codec for both encode and decode", async () => {
+        const codec = {
+            encode: (data: unknown) => `<${String(data)}>`,
+            decode: (data: unknown) => `decoded:${String(data)}`
+        };
+        const customUrl = "ws://localhost:1235";
+        const customServer = new WS(customUrl);
+        const custom = client({ url: customUrl, codec });
+
+        const opened = custom.connect();
+        await customServer.connected;
+        await opened;
+
+        custom.send("hi");
+        await expect(customServer).toReceiveMessage("<hi>");
+
+        const onMessage = vi.fn();
+        custom.on("message", onMessage);
+        customServer.send("raw");
+        expect(onMessage).toHaveBeenCalledWith("decoded:raw");
+    });
+
     it("transitions to closed and emits close on close()", async () => {
         await connected();
         const onClose = vi.fn();
