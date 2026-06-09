@@ -7,23 +7,29 @@ on:
     paths:
       - "docs/**"
       - ".github/workflows/deploy-docs.yml"
+  # Manual trigger for the initial deploy and ad-hoc redeploys.
+  workflow_dispatch:
 
 jobs:
   deploy:
-    # Runs only when a docs PR is *merged* AND deployment has been explicitly
-    # enabled. Set the repo variable DOCS_DEPLOY_ENABLED=true once the
-    # CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID secrets and DNS are in place.
-    if: ${{ github.event.pull_request.merged == true && vars.DOCS_DEPLOY_ENABLED == 'true' }}
+    # Runs only when deployment is explicitly enabled (repo variable
+    # DOCS_DEPLOY_ENABLED=true) AND either a docs PR was merged or it was
+    # dispatched by hand. The `production` environment supplies the Cloudflare
+    # secrets and gates each run behind a required-reviewer approval.
+    if: ${{ vars.DOCS_DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true) }}
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 15
     concurrency:
       group: docs-deploy
       cancel-in-progress: true
     steps:
-      - name: Checkout merge commit
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          # The merge commit for a merged PR; falls back to the triggered ref
+          # (main) for a manual workflow_dispatch.
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
