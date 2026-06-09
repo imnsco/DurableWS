@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // https://github.com/akiomik/vitest-websocket-mock
 import WS from "vitest-websocket-mock";
 import { client } from "../src/client";
-import type { WebSocketClient } from "../src/types";
+import { pingpong } from "../src/middleware";
+import type { Middleware, WebSocketClient } from "../src/types";
 
 const URL = "ws://localhost:1234";
 
@@ -115,6 +116,79 @@ describe("client", () => {
         custom.on("message", onMessage);
         customServer.send("raw");
         expect(onMessage).toHaveBeenCalledWith("decoded:raw");
+    });
+
+    it("runs middleware for each inbound message, then emits message", async () => {
+        const seen: unknown[] = [];
+        ws.use((ctx, next) => {
+            seen.push(ctx.data);
+            return next();
+        });
+        const onMessage = vi.fn();
+        ws.on("message", onMessage);
+
+        await connected();
+        server.send(JSON.stringify({ n: 1 }));
+
+        expect(seen).toEqual([{ n: 1 }]);
+        expect(onMessage).toHaveBeenCalledWith({ n: 1 });
+    });
+
+    it("middleware can transform the emitted message", async () => {
+        ws.use((ctx, next) => {
+            ctx.data = { ...(ctx.data as object), tagged: true };
+            return next();
+        });
+        const onMessage = vi.fn();
+        ws.on("message", onMessage);
+
+        await connected();
+        server.send(JSON.stringify({ n: 1 }));
+
+        expect(onMessage).toHaveBeenCalledWith({ n: 1, tagged: true });
+    });
+
+    it("middleware can short-circuit so no message is emitted", async () => {
+        ws.use(() => {
+            /* swallow: never calls next() */
+        });
+        const onMessage = vi.fn();
+        ws.on("message", onMessage);
+
+        await connected();
+        server.send(JSON.stringify({ n: 1 }));
+
+        expect(onMessage).not.toHaveBeenCalled();
+    });
+
+    it("use() returns the client for chaining", () => {
+        const noop: Middleware = (_c, next) => next();
+        expect(ws.use(noop)).toBe(ws);
+    });
+
+    it("emits error when a middleware throws", async () => {
+        ws.use(() => {
+            throw new Error("boom");
+        });
+        const onError = vi.fn();
+        ws.on("error", onError);
+
+        await connected();
+        server.send(JSON.stringify({ n: 1 }));
+
+        expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it("pingpong replies to ping without emitting it as a message", async () => {
+        ws.use(pingpong);
+        const onMessage = vi.fn();
+        ws.on("message", onMessage);
+
+        await connected();
+        server.send("ping");
+
+        await expect(server).toReceiveMessage("pong");
+        expect(onMessage).not.toHaveBeenCalled();
     });
 
     it("transitions to closed and emits close on close()", async () => {

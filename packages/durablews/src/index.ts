@@ -17,11 +17,14 @@ export function defineClient(config: WebSocketClientConfig): WebSocketClient {
 }
 
 export { jsonCodec } from "@/codec";
+export { pingpong } from "@/middleware";
 export type {
     ClientEventMap,
     ClientState,
     Codec,
     ConnectionState,
+    MessageContext,
+    Middleware,
     StateChange,
     WebSocketClient,
     WebSocketClientConfig

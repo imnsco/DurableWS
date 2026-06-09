@@ -1,11 +1,13 @@
 import { jsonCodec } from "@/codec";
 import { nextState } from "@/fsm";
 import { defineEventBus } from "@/helpers/event-bus";
+import { runPipeline } from "@/pipeline";
 import type {
     ClientEventMap,
     ClientState,
     ConnectionEvent,
     ConnectionState,
+    Middleware,
     WebSocketClient,
     WebSocketClientConfig
 } from "@/types";
@@ -30,6 +32,7 @@ import type {
 export function client(config: WebSocketClientConfig): WebSocketClient {
     const bus = defineEventBus();
     const codec = config.codec ?? jsonCodec;
+    const middlewares: Middleware[] = [];
 
     let socket: WebSocket | null = null;
     let state: ConnectionState = "idle";
@@ -83,7 +86,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         };
 
         socket.onmessage = (event: MessageEvent) => {
-            bus.emit("message", codec.decode(event.data));
+            deliver(event.data);
         };
 
         socket.onerror = (event: Event) => {
@@ -110,7 +113,29 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         };
     }
 
-    return {
+    /**
+     * Runs a decoded inbound message through the middleware chain. If the chain
+     * completes, the message is emitted as `message`; a middleware that throws
+     * or rejects surfaces as an `error`.
+     */
+    function deliver(raw: unknown) {
+        const ctx = { data: codec.decode(raw), client: api };
+        const emit = () => {
+            bus.emit("message", ctx.data);
+        };
+        try {
+            const result = runPipeline(middlewares, ctx, emit);
+            if (result instanceof Promise) {
+                result.catch((error: unknown) => {
+                    bus.emit("error", toError(error));
+                });
+            }
+        } catch (error) {
+            bus.emit("error", toError(error));
+        }
+    }
+
+    const api: WebSocketClient = {
         get state() {
             return state;
         },
@@ -177,8 +202,20 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             return () => bus.off(event, handler);
         },
 
+        use(middleware: Middleware) {
+            middlewares.push(middleware);
+            return api;
+        },
+
         getState(): ClientState {
             return Object.freeze({ state, lastError });
         }
     };
+
+    return api;
+}
+
+/** Normalize an unknown thrown value into an `Error`. */
+function toError(value: unknown): Error {
+    return value instanceof Error ? value : new Error(String(value));
 }
