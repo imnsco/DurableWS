@@ -394,8 +394,46 @@ middleware that operates on decoded messages.
 
 ### M3 — Durability ⬜
 
-Reconnection + exponential backoff, message queueing, idle detection — on by
-default, each with unit + integration + e2e coverage.
+Reconnection + exponential backoff, message queueing, idle detection. Each lands
+as its own slice with unit + integration + e2e coverage.
+
+**Proposed decisions (pending sign-off — not yet settled):**
+
+- **Reconnection.** On by default. Exponential backoff with **full jitter**
+  (delay = random in `[0, min(maxDelay, baseDelay × factorⁿ)]`) to avoid
+  thundering herd. Proposed defaults: `baseDelay 500ms`, `factor 2`,
+  `maxDelay 30s`, `maxRetries Infinity` (truly durable). Reconnect on *any*
+  close not initiated by the user's `close()`, with a `shouldReconnect(close)`
+  predicate to override. Config: `reconnect?: false | { baseDelay?, factor?,
+  maxDelay?, jitter?, maxRetries?, shouldReconnect? }`. This is also where
+  `connect()`'s "terminal failure" tightens to *retries-exhausted* (per the M2
+  contract) and the `reconnecting` FSM state is introduced.
+- **Message queueing.** On by default. `send()` while not-open **queues**
+  instead of throwing (the planned evolution of M2's throw) and flushes in order
+  on (re)open. **Bounded** (`maxSize`, proposed default ~256) with
+  **drop-oldest** + a `drop` event when full — never silently unbounded, never
+  silently lossy. `send()` while `idle`/terminally-`closed` still throws. Config:
+  `queue?: false | { maxSize? }`.
+- **Idle detection — proposed change from the original "on by default."** A
+  naive "no inbound traffic → reconnect" harms legitimately-quiet-but-healthy
+  connections, and any heartbeat depends on app-level ping semantics the library
+  can't assume. Proposed: ship it **opt-in** as
+  `heartbeat?: { interval, message?, timeout }` — when set, ping every
+  `interval` and force a reconnect if nothing arrives within `timeout`; off
+  otherwise.
+
+**Slices** (each a green, independently reviewable PR; tests travel in-PR):
+
+- ⬜ **Slice 1 — Reconnection + backoff.** `reconnecting` FSM state; backoff
+  scheduler (fake-timer-tested); retryable-close policy; `reconnecting` event;
+  `connect()` terminal semantics tightened to retries-exhausted.
+- ⬜ **Slice 2 — Message queueing.** `send()` queues while not-open; bounded
+  with drop-oldest + `drop` event; flush-on-(re)open (rides slice 1's reconnect).
+- ⬜ **Slice 3 — Idle detection / heartbeat.** Opt-in keepalive + liveness
+  timeout that forces a reconnect on a silent link.
+- ⬜ **Slice 4 — Durability e2e + docs.** Extend the Playwright harness (server
+  drops the socket → transparent reconnect + queue flush; heartbeat recovery);
+  move these features from "roadmap" to "what works today" in the docs.
 
 ### M4 — Docs content, first add-ons & 2.0 release ⬜
 
