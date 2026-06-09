@@ -392,10 +392,51 @@ travel in-PR):
 Order is deliberate: the codec defines what "decoded" means, so it precedes the
 middleware that operates on decoded messages.
 
-### M3 — Durability ⬜
+### M3 — Durability 🚧
 
-Reconnection + exponential backoff, message queueing, idle detection — on by
-default, each with unit + integration + e2e coverage.
+Reconnection + exponential backoff, message queueing, idle detection. Each lands
+as its own slice with unit + integration + e2e coverage.
+
+**Decisions (settled):**
+
+- **Reconnection.** On by default. Exponential backoff with **full jitter**
+  (delay = random in `[0, min(maxDelay, baseDelay × factorⁿ)]`) to avoid
+  thundering herd. Proposed defaults: `baseDelay 500ms`, `factor 2`,
+  `maxDelay 30s`, `maxRetries Infinity` (truly durable). Reconnect on *any*
+  close not initiated by the user's `close()`, with a `shouldReconnect(close)`
+  predicate to override. Config: `reconnect?: false | { baseDelay?, factor?,
+  maxDelay?, jitter?, maxRetries?, shouldReconnect? }`. This is also where
+  `connect()`'s "terminal failure" tightens to *retries-exhausted* (per the M2
+  contract) and the `reconnecting` FSM state is introduced.
+- **Message queueing.** On by default. `send()` while not-open **queues**
+  instead of throwing (the planned evolution of M2's throw) and flushes in order
+  on (re)open. **Bounded** (`maxSize`, proposed default ~256) with
+  **drop-oldest** + a `drop` event when full — never silently unbounded, never
+  silently lossy. `send()` while `idle`/terminally-`closed` still throws. Config:
+  `queue?: false | { maxSize? }`.
+- **Idle detection is opt-in, not on by default** (overrides the original
+  "on by default" note). A naive "no inbound traffic → reconnect" harms
+  legitimately-quiet-but-healthy connections, and any heartbeat depends on
+  app-level ping semantics the library can't assume. Ship it as
+  `heartbeat?: { interval, message?, timeout }` — when set, ping every
+  `interval` and force a reconnect if nothing arrives within `timeout`; off
+  otherwise.
+
+**Slices** (each a green, independently reviewable PR). Unlike M2, the e2e
+harness already exists, so each slice carries its own unit + integration + e2e
+coverage *and* its docs update ("roadmap → what works today") in-PR — there is no
+separate test/e2e slice.
+
+- 🚧 **Slice 1 — Reconnection + backoff.** `reconnecting` FSM state; backoff
+  scheduler (fake-timer-tested); retryable-close policy; `reconnecting` event;
+  `connect()` terminal semantics tightened to retries-exhausted. E2e: server
+  drops the socket → transparent reconnect.
+- ⬜ **Slice 2 — Message queueing.** `send()` queues while not-open; bounded
+  with drop-oldest + `drop` event; flush-on-(re)open (rides slice 1's reconnect).
+  E2e: queued sends flush after a reconnect.
+- ⬜ **Slice 3 — Idle detection / heartbeat.** Opt-in keepalive + liveness
+  timeout that forces a reconnect on a silent link. E2e: heartbeat-triggered
+  recovery.
 
 ### M4 — Docs content, first add-ons & 2.0 release ⬜
 
@@ -405,8 +446,10 @@ codecs/middleware/plugins as subpath exports; automated npm release of
 
 ## 9. Open questions
 
-- Exact default values for reconnection (max retries, base delay, jitter, cap)
-  and idle timeout — to be settled in M3 with tests.
+- ~~Exact default values for reconnection (max retries, base delay, jitter, cap)
+  and idle timeout.~~ **Settled in M3** — reconnect: `baseDelay 500ms`,
+  `factor 2`, `maxDelay 30s`, full jitter, `maxRetries Infinity`; queue bounded
+  at 256 (drop-oldest); idle detection opt-in (no default timeout). See M3 above.
 - ~~Whether `connect()` returns a promise that resolves on first open, and how
   it interacts with auto-reconnect.~~ **Settled in M2** — resolves on first
   open; idempotent; rejects only on terminal failure (see M2 above).
