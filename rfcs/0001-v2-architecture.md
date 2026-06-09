@@ -422,18 +422,21 @@ as its own slice with unit + integration + e2e coverage.
   `interval` and force a reconnect if nothing arrives within `timeout`; off
   otherwise.
 
-**Slices** (each a green, independently reviewable PR; tests travel in-PR):
+**Slices** (each a green, independently reviewable PR). Unlike M2, the e2e
+harness already exists, so each slice carries its own unit + integration + e2e
+coverage *and* its docs update ("roadmap → what works today") in-PR — there is no
+separate test/e2e slice.
 
 - ⬜ **Slice 1 — Reconnection + backoff.** `reconnecting` FSM state; backoff
   scheduler (fake-timer-tested); retryable-close policy; `reconnecting` event;
-  `connect()` terminal semantics tightened to retries-exhausted.
+  `connect()` terminal semantics tightened to retries-exhausted. E2e: server
+  drops the socket → transparent reconnect.
 - ⬜ **Slice 2 — Message queueing.** `send()` queues while not-open; bounded
   with drop-oldest + `drop` event; flush-on-(re)open (rides slice 1's reconnect).
+  E2e: queued sends flush after a reconnect.
 - ⬜ **Slice 3 — Idle detection / heartbeat.** Opt-in keepalive + liveness
-  timeout that forces a reconnect on a silent link.
-- ⬜ **Slice 4 — Durability e2e + docs.** Extend the Playwright harness (server
-  drops the socket → transparent reconnect + queue flush; heartbeat recovery);
-  move these features from "roadmap" to "what works today" in the docs.
+  timeout that forces a reconnect on a silent link. E2e: heartbeat-triggered
+  recovery.
 
 ### M4 — Docs content, first add-ons & 2.0 release ⬜
 
