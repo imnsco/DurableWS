@@ -3,226 +3,131 @@
  */
 export interface WebSocketClientConfig {
     /** The URL to connect to. */
-    readonly url: string;
+    readonly url: string | URL;
+    /** Optional subprotocol(s) passed to the underlying `WebSocket`. */
+    readonly protocols?: string | string[];
 }
 
 /**
- * Represents the payload of a message, which can be a string or any other type.
+ * The states a connection can occupy. This is the public, observable lifecycle.
+ *
+ * - `idle` — created but never connected.
+ * - `connecting` — a socket is open-in-progress, awaiting the first `open`.
+ * - `open` — connected and ready to send/receive.
+ * - `closing` — a close has been requested, awaiting the socket to finish.
+ * - `closed` — the socket is closed; the client may `connect()` again.
+ *
+ * (Reconnection introduces a `reconnecting` state in M3.)
  */
-export type Payload = string | unknown;
+export type ConnectionState =
+    | "idle"
+    | "connecting"
+    | "open"
+    | "closing"
+    | "closed";
 
 /**
- * Represents the state of the WebSocket client.
+ * The internal events that drive the connection FSM.
+ *
+ * `OPEN` / `CLOSED` originate from the underlying socket; `CONNECT` /
+ * `CLOSE_REQUESTED` originate from the user calling `connect()` / `close()`.
+ * Transport errors are handled out-of-band and are not FSM events — see `fsm.ts`.
+ */
+export type ConnectionEvent = "CONNECT" | "OPEN" | "CLOSE_REQUESTED" | "CLOSED";
+
+/**
+ * A read-only snapshot of the client's observable state. Bounded by design —
+ * it holds lifecycle, never message history.
  */
 export interface ClientState {
-    /** List of messages received. */
-    messages: Payload[];
-    /** Indicates if the client is currently connected. */
-    connected: boolean;
-    /** The current state of the socket connection. */
-    connectionState: SocketState;
+    /** The current connection state. */
+    readonly state: ConnectionState;
+    /** The most recent transport error, if any. */
+    readonly lastError: Event | null;
 }
 
 /**
- * Interface for a WebSocket client.
+ * Payload emitted on every `statechange`.
+ */
+export interface StateChange {
+    /** The state being left. */
+    readonly previous: ConnectionState;
+    /** The state being entered. */
+    readonly current: ConnectionState;
+}
+
+/**
+ * The events a client emits, mapped to their payload types. Used to give
+ * `on()` precise, per-event payload typing.
+ */
+export interface ClientEventMap {
+    /** The socket opened. */
+    open: undefined;
+    /** A message was received and decoded. */
+    message: unknown;
+    /** The socket closed (clean or otherwise). */
+    close: CloseEvent;
+    /** A transport error occurred. */
+    error: Event;
+    /** The connection state changed. */
+    statechange: StateChange;
+}
+
+/**
+ * A resilient, zero-dependency WebSocket client.
  */
 export interface WebSocketClient {
-    /**
-     * Connects to the WebSocket server.
-     * @returns A promise that resolves when the connection is established.
-     */
-    connect: () => Promise<void>;
+    /** The current connection state. */
+    readonly state: ConnectionState;
 
     /**
-     * Closes the WebSocket connection.
+     * Opens the connection.
+     *
+     * Resolves the first time the socket opens. Calling it while already
+     * `open` resolves immediately; calling it while `connecting` returns the
+     * same in-flight promise (idempotent). Rejects only on a terminal failure —
+     * in this release, a connection that closes before it ever opens.
+     *
+     * Failures *after* the first open surface via the `error` / `close` events,
+     * not this promise. For fire-and-forget use, attach a `.catch` or listen
+     * for `error` to avoid an unhandled rejection.
      */
-    close: () => void;
+    connect(): Promise<void>;
 
     /**
-     * Sends data to the WebSocket server.
-     * @param data - The data to send.
+     * Sends data over the connection. Non-string data is encoded (JSON by
+     * default). Throws if the connection is not open.
      */
-    send: (data: unknown) => void;
+    send(data: unknown): void;
 
     /**
-     * Subscribes to an event.
-     * @param eventName - The name of the event to subscribe to.
-     * @param handler - The function to handle the event.
-     * @returns A function to unsubscribe from the event.
+     * Closes the connection.
+     * @param code - Optional close code (see `error.ts`).
+     * @param reason - Optional human-readable close reason.
      */
-    on: (eventName: string, handler: (payload: unknown) => void) => () => void;
+    close(code?: number, reason?: string): void;
 
     /**
-     * Applies middleware to the client.
-     * @param middleware - The middleware to apply.
+     * Subscribes to a client event.
+     * @returns an unsubscribe function.
      */
-    use: (middleware: Middleware<ClientState>) => void;
+    on<K extends keyof ClientEventMap>(
+        event: K,
+        handler: (payload: ClientEventMap[K]) => void
+    ): () => void;
+
+    /**
+     * Returns a read-only snapshot of the client's observable state.
+     */
+    getState(): ClientState;
 }
-
-/**
- * Possible events emitted by the WebSocket client.
- */
-export type SocketEvent =
-    | "connecting"
-    | "connected"
-    | "close"
-    | "retry"
-    | "disconnect";
 
 /**
  * Event bus interface for managing event subscriptions and emissions.
  */
 export interface EventBus {
-    /**
-     * Subscribes to an event.
-     * @param eventName - The name of the event.
-     * @param handler - The function to handle the event.
-     */
     on<T = unknown>(eventName: string, handler: (payload: T) => void): void;
-
-    /**
-     * Unsubscribes from an event.
-     * @param eventName - The name of the event.
-     * @param handler - The function to remove from the event.
-     */
     off<T = unknown>(eventName: string, handler: (payload: T) => void): void;
-
-    /**
-     * Emits an event.
-     * @param eventName - The name of the event.
-     * @param payload - The payload to send with the event.
-     */
     emit<T = unknown>(eventName: string, payload?: T): void;
-
-    /**
-     * Subscribes to an event that will be automatically unsubscribed after first trigger.
-     * @param eventName - The name of the event.
-     * @param handler - The function to handle the event.
-     */
     once<T = unknown>(eventName: string, handler: (payload: T) => void): void;
-}
-
-/**
- * Enum representing the possible states of a WebSocket connection.
- */
-export enum SocketState {
-    IDLE = "IDLE", // not yet connected
-    CONNECTING = "CONNECTING",
-    CONNECTED = "CONNECTED",
-    RECONNECTING = "RECONNECTING",
-    CLOSED = "CLOSED"
-}
-
-/**
- * Represents an action to be dispatched in the store.
- */
-export interface Action<T = Payload> {
-    /** The type of the action. */
-    type: string;
-    /** The payload of the action. */
-    payload?: T;
-}
-
-/**
- * A function that updates the state in response to an event.
- */
-export type HandlerFn<S> = (state: S, payload: unknown) => S | undefined;
-
-/**
- * Function signature for the next middleware or final action.
- */
-export type NextFn = () => Promise<Action> | Action;
-
-/**
- * Middleware function signature.
- * @param context - The context for the middleware, including the store, current action, etc.
- * @param next - The callback to proceed to the next middleware or final action.
- */
-export type Middleware<S = unknown> = (
-    context: MiddlewareContext<S>,
-    next: NextFn
-) => Promise<Action> | Action;
-
-/**
- * Context information passed to each middleware.
- */
-export interface MiddlewareContext<S = unknown> {
-    /** The current action being processed. */
-    action: Action;
-    /** The current state of the store. */
-    state: S;
-    /** Reference to the WebSocket client. */
-    client: WebSocketClient;
-    /** Configuration for the WebSocket client. */
-    config: WebSocketClientConfig;
-}
-
-/**
- * Interface for a store that manages state and actions.
- */
-export interface Store<S> {
-    /**
-     * Sets additional context for the store.
-     * @param ctx - Partial context to set.
-     */
-    setContext(ctx: Partial<MiddlewareContext<S>>): void;
-
-    /**
-     * Gets the current state of the store.
-     * @returns The current state.
-     */
-    getState(): S;
-
-    /**
-     * Dispatches an event to the store.
-     * @param eventName - The name of the event.
-     * @param payload - The payload for the event.
-     * @returns The resulting action.
-     */
-    dispatch(eventName: string, payload?: unknown): Promise<Action> | Action;
-
-    /**
-     * Subscribes to an event.
-     * @param eventName - The name of the event.
-     * @param callback - The function to handle the event.
-     */
-    on<T = unknown>(eventName: string, callback: (payload: T) => void): void;
-
-    /**
-     * Unsubscribes from an event.
-     * @param eventName - The name of the event.
-     * @param callback - The function to remove from the event.
-     */
-    off<T = unknown>(eventName: string, callback: (payload: T) => void): void;
-
-    /**
-     * Defines a handler for a specific action.
-     * @param eventName - The name of the event.
-     * @param handler - The function to handle the event.
-     */
-    defineAction(eventName: string, handler: HandlerFn<S>): void;
-
-    /**
-     * Defines multiple actions at once.
-     * @param actions - Array of actions to define.
-     */
-    defineActions(
-        actions: Array<{ event: string; handler: HandlerFn<S> }>
-    ): void;
-
-    /**
-     * Applies middleware to the store.
-     * @param middlewares - The middleware functions to apply.
-     */
-    use(...middlewares: Middleware<S>[]): void;
-}
-
-/**
- * A helper for registering multiple event-action mappings at once.
- */
-export interface ActionRegistration<S> {
-    /** The event name. */
-    event: string;
-    /** The handler function for the event. */
-    handler: HandlerFn<S>;
 }

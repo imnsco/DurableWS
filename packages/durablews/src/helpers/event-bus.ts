@@ -92,7 +92,7 @@ export function defineEventBus(): EventBus {
      * @param eventName - The name of the event to emit
      * @param payload - The data to pass to event handlers
      */
-    function emit<T = unknown>(eventName: string, payload: T) {
+    function emit<T = unknown>(eventName: string, payload?: T) {
         const handlers = listeners.get(eventName);
         handlers?.forEach((fn) => {
             fn(payload);

@@ -2,91 +2,139 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // https://github.com/akiomik/vitest-websocket-mock
 import WS from "vitest-websocket-mock";
 import { client } from "../src/client";
-import { pingpong } from "../src/middleware/pingpong";
 import type { WebSocketClient } from "../src/types";
 
-const WEBSOCKET_URL = "ws://localhost:1234";
+const URL = "ws://localhost:1234";
 
-// Helper: Wait for a given amount of milliseconds
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-describe("Client", () => {
+describe("client", () => {
     let server: WS;
-    let wsClient: WebSocketClient;
+    let ws: WebSocketClient;
 
-    beforeEach(async () => {
-        server = new WS(WEBSOCKET_URL);
-        wsClient = client({
-            url: WEBSOCKET_URL
-        });
-        wsClient.connect();
-        await server.connected;
+    beforeEach(() => {
+        server = new WS(URL);
+        ws = client({ url: URL });
     });
 
     afterEach(() => {
         WS.clean();
     });
 
-    it("should return a client instance", async () => {
-        expect(wsClient).toBeDefined();
-        expect(wsClient.connect).toBeDefined();
+    async function connected() {
+        const opened = ws.connect();
+        await server.connected;
+        await opened;
+    }
+
+    it("starts idle and opens", async () => {
+        expect(ws.state).toBe("idle");
+        await connected();
+        expect(ws.state).toBe("open");
     });
 
-    it("should close the connection", async () => {
-        wsClient.close();
-        await server.closed;
-        expect(server).toHaveReceivedMessages([]);
+    it("connect() resolves on first open and emits open + statechange", async () => {
+        const onOpen = vi.fn();
+        const onStateChange = vi.fn();
+        ws.on("open", onOpen);
+        ws.on("statechange", onStateChange);
+
+        await connected();
+
+        expect(onOpen).toHaveBeenCalledTimes(1);
+        expect(onStateChange).toHaveBeenCalledWith({
+            previous: "connecting",
+            current: "open"
+        });
     });
 
-    it("should send a message", async () => {
-        const message = { type: "test", payload: "hello" };
-        wsClient.send(message);
-
-        await expect(server).toReceiveMessage(JSON.stringify(message));
-        expect(server).toHaveReceivedMessages([JSON.stringify(message)]);
+    it("connect() is idempotent once open", async () => {
+        await connected();
+        await expect(ws.connect()).resolves.toBeUndefined();
+        expect(ws.state).toBe("open");
     });
 
-    it("should handle incoming messages", async () => {
-        const messageHandler = vi.fn();
-        wsClient.on("message", messageHandler);
+    it("connect() while connecting returns the same in-flight promise", () => {
+        const first = ws.connect();
+        const second = ws.connect();
+        expect(second).toBe(first);
+        // Never driven to open; swallow the rejection from teardown closing the
+        // still-connecting socket so it isn't reported as unhandled.
+        first.catch(() => {});
+    });
 
-        server.send(JSON.stringify({ data: "test message" }));
-        // Wait for the message to be processed
-        await wait(100);
+    it("connect() rejects if the socket closes before opening", async () => {
+        const opening = ws.connect();
+        server.close();
+        await expect(opening).rejects.toThrow(/before opening/);
+        expect(ws.state).toBe("closed");
+    });
 
-        expect(messageHandler).toHaveBeenCalledWith(
-            expect.objectContaining({
-                data: "test message"
-            })
+    it("sends a string as-is and objects as JSON", async () => {
+        await connected();
+
+        ws.send("raw");
+        await expect(server).toReceiveMessage("raw");
+
+        const payload = { type: "test", value: 1 };
+        ws.send(payload);
+        await expect(server).toReceiveMessage(JSON.stringify(payload));
+    });
+
+    it("throws when sending while not open", () => {
+        expect(() => ws.send("nope")).toThrow(/not open/);
+    });
+
+    it("delivers decoded incoming messages", async () => {
+        await connected();
+        const onMessage = vi.fn();
+        ws.on("message", onMessage);
+
+        server.send(JSON.stringify({ data: "hello" }));
+
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ data: "hello" })
         );
     });
 
-    it("should handle connection close", async () => {
-        const closeHandler = vi.fn();
-        wsClient.on("close", closeHandler);
+    it("transitions to closed and emits close on close()", async () => {
+        await connected();
+        const onClose = vi.fn();
+        ws.on("close", onClose);
 
-        server.close();
-        // Wait for the close event to be processed
-        await wait(100);
+        ws.close();
+        await server.closed;
 
-        expect(closeHandler).toHaveBeenCalled();
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(ws.state).toBe("closed");
+        expect(ws.getState().state).toBe("closed");
     });
 
-    it("should handle errors", async () => {
-        const errorHandler = vi.fn();
-        wsClient.on("error", errorHandler);
+    it("transitions to closed on a remote close", async () => {
+        await connected();
+        server.close();
+        await server.closed;
+        expect(ws.state).toBe("closed");
+    });
+
+    it("surfaces transport errors via on(error) and getState().lastError", async () => {
+        await connected();
+        const onError = vi.fn();
+        ws.on("error", onError);
 
         server.error();
-        // Wait for the error event to be processed
-        await wait(100);
 
-        expect(errorHandler).toHaveBeenCalled();
+        expect(onError).toHaveBeenCalledTimes(1);
+        expect(ws.getState().lastError).not.toBeNull();
     });
 
-    // it should handle pingpong middleware
-    it("should handle pingpong middleware", async () => {
-        server.send("ping");
-        wsClient.use(pingpong);
-        await expect(server).toReceiveMessage("pong");
+    it("can reconnect after closing", async () => {
+        await connected();
+        ws.close();
+        await server.closed;
+        expect(ws.state).toBe("closed");
+
+        WS.clean();
+        server = new WS(URL);
+        await connected();
+        expect(ws.state).toBe("open");
     });
 });
