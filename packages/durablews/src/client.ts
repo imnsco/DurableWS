@@ -1,171 +1,183 @@
-import connectionActions from "@/actions/connection-handlers";
-import { onMessage } from "@/actions/message-handlers";
-import { defineStore } from "@/helpers/store";
-import { logger, pingpong } from "@/middleware/pingpong";
+import { nextState } from "@/fsm";
+import { defineEventBus } from "@/helpers/event-bus";
 import type {
+    ClientEventMap,
     ClientState,
-    Middleware,
-    Store,
+    ConnectionEvent,
+    ConnectionState,
     WebSocketClient,
     WebSocketClientConfig
 } from "@/types";
-import { SocketState } from "@/types";
 import { safeJSONParse } from "@/utils";
 
 /**
- * Creates a WebSocket client with state management, middleware support, and event handling.
+ * Creates a WebSocket client driven by an explicit connection FSM.
  *
- * @param config - Configuration object containing WebSocket URL and other options
- * @returns A WebSocketClient instance with connect, send, close, on, and use methods
+ * @param config - Connection configuration (at minimum, a `url`).
  *
  * @example
  * ```typescript
- * const wsClient = client({ url: 'ws://localhost:8080' });
+ * const ws = client({ url: "wss://example.com/socket" });
  *
- * // Connect to WebSocket
- * await wsClient.connect();
+ * ws.on("message", (data) => console.log("received:", data));
  *
- * // Listen for events
- * const unsubscribe = wsClient.on('message', (data) => {
- *   console.log('Received:', data);
- * });
+ * await ws.connect();
+ * ws.send({ type: "hello", message: "world" });
  *
- * // Send data
- * wsClient.send({ type: 'hello', payload: 'world' });
- *
- * // Clean up
- * unsubscribe();
- * wsClient.close();
+ * ws.close();
  * ```
  */
 export function client(config: WebSocketClientConfig): WebSocketClient {
-    let ws: WebSocket | null = null;
+    const bus = defineEventBus();
 
-    const initialState: ClientState = {
-        connected: false,
-        connectionState: SocketState.IDLE,
-        messages: []
-    };
+    let socket: WebSocket | null = null;
+    let state: ConnectionState = "idle";
+    let lastError: Event | null = null;
 
-    const store = defineStore<ClientState>(initialState);
-    store.defineActions(connectionActions);
-    store.defineAction("message", onMessage);
+    // The in-flight connect() promise and its settlers. A single promise is
+    // shared across concurrent/repeat connect() calls so the method is
+    // idempotent; it is cleared once the connection opens or terminally fails.
+    let pending: {
+        readonly promise: Promise<void>;
+        readonly resolve: () => void;
+        readonly reject: (reason: Error) => void;
+    } | null = null;
 
     /**
-     * Factory function that creates the WebSocket client API with all methods.
+     * Applies an FSM event. Legal transitions update the state and emit
+     * `statechange`; illegal ones are ignored (the table is the guard).
      *
-     * @param store - The state store instance for managing client state
-     * @returns WebSocketClient API object with all client methods
+     * @returns the new state if a transition occurred, otherwise `null`.
      */
-    const api = (store: Store<ClientState>): WebSocketClient => {
-        return {
-            /**
-             * Establishes a WebSocket connection to the configured URL.
-             * Handles connection state management and sets up event listeners.
-             *
-             * @returns Promise that resolves when connection attempt is initiated
-             */
-            async connect() {
-                console.log("connect() called");
-                if (ws && ws.readyState !== WebSocket.CLOSED) {
-                    return;
-                }
-                store.dispatch("connecting");
-                ws = new WebSocket(config.url);
+    function transition(event: ConnectionEvent): ConnectionState | null {
+        const next = nextState(state, event);
+        if (next === null || next === state) return null;
 
-                ws.onopen = () => {
-                    store.dispatch("connected");
-                };
-                ws.onclose = (closeEvent) => {
-                    store.dispatch("close", closeEvent);
-                };
-                ws.onerror = (err) => {
-                    console.log("onerror called");
-                    store.dispatch("error", err);
-                };
-                ws.onmessage = (event) => {
-                    const message = safeJSONParse<unknown>(event.data);
-                    store.dispatch("message", message);
-                };
-            },
-            /**
-             * Closes the WebSocket connection and cleans up resources.
-             */
-            close() {
-                ws?.close();
-                ws = null;
-            },
-            /**
-             * Sends data through the WebSocket connection.
-             * Automatically stringifies non-string data as JSON.
-             *
-             * @param data - The data to send (string or any serializable object)
-             */
-            send(data: unknown) {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    if (typeof data === "string") {
-                        ws.send(data);
-                    } else {
-                        ws.send(JSON.stringify(data));
-                    }
-                } else {
-                    console.warn(
-                        "WebSocket not open. Could not send message:",
-                        data
-                    );
-                }
-            },
-            /**
-             * Subscribes to events from the WebSocket client.
-             *
-             * @param eventName - The name of the event to listen for
-             * @param handler - Callback function to handle the event
-             * @returns Unsubscribe function to remove the event listener
-             *
-             * @example
-             * ```typescript
-             * const unsubscribe = client.on('message', (data) => {
-             *   console.log('Received:', data);
-             * });
-             *
-             * // Later, remove the listener
-             * unsubscribe();
-             * ```
-             */
-            on<T = unknown>(eventName: string, handler: (payload: T) => void) {
-                store.on<T>(eventName, handler);
-                return () => store.off<T>(eventName, handler);
-            },
-            /**
-             * Adds middleware to the client for intercepting and processing actions.
-             *
-             * @param middleware - Middleware function to add to the processing chain
-             *
-             * @example
-             * ```typescript
-             * client.use((store, next, action, payload, context) => {
-             *   console.log('Action:', action, 'Payload:', payload);
-             *   return next(action, payload);
-             * });
-             * ```
-             */
-            use(middleware: Middleware<ClientState>) {
-                store.use(middleware);
+        const previous = state;
+        state = next;
+        bus.emit("statechange", { previous, current: next });
+        return next;
+    }
+
+    function settleConnected() {
+        pending?.resolve();
+        pending = null;
+    }
+
+    function settleFailed(reason: Error) {
+        pending?.reject(reason);
+        pending = null;
+    }
+
+    function openSocket() {
+        lastError = null;
+        socket = config.protocols
+            ? new WebSocket(config.url, config.protocols)
+            : new WebSocket(config.url);
+
+        socket.onopen = () => {
+            transition("OPEN");
+            bus.emit("open");
+            settleConnected();
+        };
+
+        socket.onmessage = (event: MessageEvent) => {
+            bus.emit("message", safeJSONParse<unknown>(event.data));
+        };
+
+        socket.onerror = (event: Event) => {
+            lastError = event;
+            bus.emit("error", event);
+        };
+
+        socket.onclose = (event: CloseEvent) => {
+            const wasConnecting = state === "connecting";
+            transition("CLOSED");
+            socket = null;
+            bus.emit("close", event);
+            // A socket that closes before it ever opened is a terminal failure
+            // for this connect() call (reconnection lands in M3).
+            if (wasConnecting) {
+                settleFailed(
+                    new Error(
+                        `WebSocket closed before opening (code ${event.code}${
+                            event.reason ? `: ${event.reason}` : ""
+                        })`
+                    )
+                );
             }
         };
+    }
+
+    return {
+        get state() {
+            return state;
+        },
+
+        connect() {
+            if (state === "open") return Promise.resolve();
+            if (state === "connecting" && pending) return pending.promise;
+            if (state === "closing") {
+                return Promise.reject(
+                    new Error(
+                        "Cannot connect() while the connection is closing"
+                    )
+                );
+            }
+
+            // idle or closed → start a fresh attempt.
+            if (transition("CONNECT") === null) {
+                return Promise.reject(
+                    new Error(`Cannot connect() from state "${state}"`)
+                );
+            }
+
+            let resolve!: () => void;
+            let reject!: (reason: Error) => void;
+            const promise = new Promise<void>((res, rej) => {
+                resolve = res;
+                reject = rej;
+            });
+            pending = { promise, resolve, reject };
+
+            try {
+                openSocket();
+            } catch (error) {
+                transition("CLOSED");
+                socket = null;
+                const reason =
+                    error instanceof Error ? error : new Error(String(error));
+                settleFailed(reason);
+            }
+
+            return promise;
+        },
+
+        send(data: unknown) {
+            if (!socket || state !== "open") {
+                throw new Error(
+                    `Cannot send: connection is not open (state: "${state}")`
+                );
+            }
+            socket.send(typeof data === "string" ? data : JSON.stringify(data));
+        },
+
+        close(code?: number, reason?: string) {
+            if (!socket) return;
+            transition("CLOSE_REQUESTED");
+            socket.close(code, reason);
+        },
+
+        on<K extends keyof ClientEventMap>(
+            event: K,
+            handler: (payload: ClientEventMap[K]) => void
+        ) {
+            bus.on(event, handler);
+            return () => bus.off(event, handler);
+        },
+
+        getState(): ClientState {
+            return Object.freeze({ state, lastError });
+        }
     };
-
-    const clientApi = api(store);
-
-    // Set the additional context that gets passed to each middleware
-    store.setContext({
-        client: clientApi,
-        config
-    });
-
-    // Add internal middleware
-    store.use(pingpong);
-    store.use(logger);
-
-    return clientApi;
 }

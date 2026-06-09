@@ -1,10 +1,26 @@
-import { client } from "./client";
-import type { WebSocketClient, WebSocketClientConfig } from "./types";
+import { client } from "@/client";
+import type { WebSocketClient, WebSocketClientConfig } from "@/types";
 
-// Singleton instance of the WebSocketClient
-let instance: WebSocketClient;
-export function defineClient(config: WebSocketClientConfig) {
-    if (instance) return instance;
-    instance = client(config);
-    return instance;
+/**
+ * Creates a new {@link WebSocketClient}.
+ *
+ * Each call returns an independent client — there is no shared singleton.
+ *
+ * @example
+ * ```typescript
+ * const ws = defineClient({ url: "wss://example.com/socket" });
+ * await ws.connect();
+ * ```
+ */
+export function defineClient(config: WebSocketClientConfig): WebSocketClient {
+    return client(config);
 }
+
+export type {
+    ClientEventMap,
+    ClientState,
+    ConnectionState,
+    StateChange,
+    WebSocketClient,
+    WebSocketClientConfig
+} from "@/types";

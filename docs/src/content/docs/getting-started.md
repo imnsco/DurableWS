@@ -46,15 +46,17 @@ client.close();
 
 ## What works today
 
-- Connect / send / close and incoming-message handling over the standard
-  `WebSocket`
-- Event subscriptions (`on` / `off`)
-- A middleware pipeline (`use`)
+- Connect / send / close over the standard `WebSocket`, driven by an explicit
+  connection state machine
+- Incoming-message handling and lifecycle events (`open`, `message`, `close`,
+  `error`, `statechange`) via `on()`
+- A read-only `state` and `getState()` snapshot
 
 ## On the roadmap
 
-Automatic reconnection with exponential backoff, message queueing while
-disconnected, idle detection, pluggable codecs, and channels. Until these land,
-treat the durability features as a roadmap rather than a guarantee — see the
+A pluggable codec seam, a middleware pipeline, automatic reconnection with
+exponential backoff, message queueing while disconnected, idle detection, and
+channels. Until these land, treat the durability features as a roadmap rather
+than a guarantee — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.
