@@ -319,17 +319,67 @@ Structural only — no behavior change to the library.
   (commit `12012c1`)
 - ✅ **Slice 4 — Docs site.** Astro 5 + Starlight site in `docs/` (user-facing
   content only — landing + getting-started); RFCs kept as repo-internal
-  `rfcs/` markdown (site publishing of RFCs deferred to M4). Static site set up
-  for Cloudflare Workers (Workers Static Assets via `wrangler.jsonc`), domain
-  `durablews.imns.co`; deploy workflow gated on a `DOCS_DEPLOY_ENABLED` repo
+  `rfcs/` markdown (site publishing of RFCs deferred to M4). Built for
+  Cloudflare Workers via the `@astrojs/cloudflare` adapter (emits a Worker +
+  asset bundle, configured in `wrangler.jsonc`), domain `durablews.imns.co`;
+  deploy workflow gated on a `DOCS_DEPLOY_ENABLED` repo
   variable until CF secrets + DNS are set. Added a required `Docs` CI job.
   (commit `ce286df`)
 
-### M2 — Core rewrite & correctness ⬜
+### M2 — Core rewrite & correctness 🚧
 
 Typed connection FSM; codec seam; middleware pipeline retained; event delivery;
 drop singleton caching; remove messages-in-state; fix the close/error bug; strip
 console noise. Full test pyramid populated for the core. Everything green.
+
+**Decisions settled for M2:**
+
+- **The generic store is removed**, not retained. `defineStore` / `dispatch` /
+  `defineAction` / `composeActions` / `HandlerFn` are deleted. A free-form
+  reducer is the wrong tool for a connection lifecycle — it has no concept of an
+  illegal transition, which is precisely what allowed `dispatch("close")` to be
+  a silent no-op (the close/error bug). State is *not* removed: it is replaced
+  by (a) a typed FSM that forbids illegal transitions by construction and (b) a
+  small read-only observable holding the current state (plus `lastError` and
+  counters as durability lands). The middleware pipeline survives as a
+  standalone module re-homed onto the message path.
+- **Event names follow the standard `WebSocket` vocabulary:** `open`,
+  `message`, `close`, `error`, plus `statechange`. (Today's `connected` →
+  `open`.) We are pre-redesign and break freely.
+- **`connect()` contract** (the stable-across-M2→M3 subset):
+  - Resolves the first time the socket opens. *(Never changes.)*
+  - Idempotent — concurrent/repeat calls return the same in-flight promise;
+    calling while already open resolves immediately.
+  - Rejection means **terminal** failure, not first failure. In M2 (no
+    reconnect) a failed initial connection is terminal, so it rejects. In M3,
+    reconnect redefines "terminal" as *retries exhausted*, so `connect()` stays
+    pending across retries and rejects only when the library gives up — the
+    meaning holds, only the definition of "terminal" tightens, so no API churn.
+  - Ongoing failures after first open surface via `on("error")` / `on("close")`,
+    not the promise. Docs note: `await` or `.catch` to avoid an unhandled
+    rejection on fire-and-forget `connect()`.
+
+**Slices** (each a green, independently reviewable PR; unit + integration tests
+travel in-PR):
+
+- ⬜ **Slice 1 — FSM lifecycle core.** Typed connection FSM (states +
+  transition table + guards) replacing the store's lifecycle role. Every `ws`
+  event maps to a defined transition (kills the close/error dead-transition
+  bug). Bounded read-only observable state (lifecycle only — no messages).
+  Drops the `defineClient` singleton. Strips console noise. `connect()` resolves
+  on first open per the contract above. Inbound messages decoded inline (JSON)
+  and delivered via `on("message")` — never stored.
+- ⬜ **Slice 2 — Codec seam.** Pluggable `encode` / `decode` with a default JSON
+  codec; `config.codec` option. Replaces the inline JSON; folds `safeJSONParse`
+  into the default codec; deletes the broken, unused `normalizeURL`.
+- ⬜ **Slice 3 — Middleware pipeline (re-homed).** Standalone pipeline on the
+  decoded-message path (not lifecycle). `pingpong` becomes opt-in; the
+  default `logger` is dropped. `client.use(...)` retained.
+- ⬜ **Slice 4 — Test pyramid + e2e.** Fill coverage gaps across the core; add a
+  Playwright browser e2e harness; wire test tiers into CI.
+
+Order is deliberate: the codec defines what "decoded" means, so it precedes the
+middleware that operates on decoded messages.
 
 ### M3 — Durability ⬜
 
@@ -345,10 +395,13 @@ codecs/middleware/plugins as subpath exports; automated npm release of
 ## 9. Open questions
 
 - Exact default values for reconnection (max retries, base delay, jitter, cap)
-  and idle timeout — to be settled in M2 with tests.
-- Whether `connect()` returns a promise that resolves on first open, and how it
-  interacts with auto-reconnect.
-- Final primary-API surface (names of options, event names) — refined during M1.
+  and idle timeout — to be settled in M3 with tests.
+- ~~Whether `connect()` returns a promise that resolves on first open, and how
+  it interacts with auto-reconnect.~~ **Settled in M2** — resolves on first
+  open; idempotent; rejects only on terminal failure (see M2 above).
+- ~~Final primary-API surface (names of options, event names).~~ **Event names
+  settled in M2** — standard `WebSocket` vocabulary (`open`/`message`/`close`/
+  `error`/`statechange`). Option names refined as each seam lands.
 - Whether channels are the only plugin-shaped feature (which would let us drop
   the umbrella "plugin" concept from the public vocabulary).
 ```
