@@ -27,7 +27,9 @@ export function runPipeline(
         invoked = i;
 
         const middleware = middlewares[i];
-        if (!middleware) return terminal();
+        if (!middleware) {
+            return terminal();
+        }
         return middleware(ctx, () => dispatch(i + 1));
     }
 

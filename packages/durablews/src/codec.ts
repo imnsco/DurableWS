@@ -16,10 +16,12 @@ function safeJSONParse(data: string): unknown {
  * Whether a value is already a WebSocket-sendable binary frame and should be
  * passed through rather than JSON-encoded (`ArrayBuffer`, any typed array or
  * `DataView`, or a `Blob`).
+ *
+ * The predicate claims `BufferSource` (what `WebSocket.send` accepts), which
+ * asserts the view is not backed by a `SharedArrayBuffer` — `send` rejects
+ * those at runtime, so they were never sendable anyway.
  */
-function isBinary(
-    data: unknown
-): data is ArrayBufferLike | ArrayBufferView | Blob {
+function isBinary(data: unknown): data is BufferSource | Blob {
     return (
         data instanceof ArrayBuffer ||
         ArrayBuffer.isView(data) ||
@@ -37,7 +39,9 @@ function isBinary(
  */
 export const jsonCodec: Codec = {
     encode(data: unknown) {
-        if (typeof data === "string" || isBinary(data)) return data;
+        if (typeof data === "string" || isBinary(data)) {
+            return data;
+        }
         return JSON.stringify(data);
     },
     decode(data: unknown) {

@@ -31,6 +31,7 @@
         "e2e": "pnpm run build && playwright test",
         "e2e:install": "playwright install --with-deps chromium",
         "typecheck": "tsc --noEmit",
+        "typecheck:next": "pnpm --package=typescript@next dlx tsc --noEmit",
         "check:publish": "publint && attw --pack .",
         "prepublishOnly": "pnpm build"
     },
@@ -72,7 +73,7 @@
     "devDependencies": {
         "@arethetypeswrong/cli": "^0.18.3",
         "@playwright/test": "^1.60.0",
-        "@types/node": "^20.11.17",
+        "@types/node": "^22.19.20",
         "@types/ws": "^8.18.1",
         "jsdom": "^24.0.0",
         "publint": "^0.3.21",
