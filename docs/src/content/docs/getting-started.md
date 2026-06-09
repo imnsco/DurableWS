@@ -51,12 +51,12 @@ client.close();
 - Incoming-message handling and lifecycle events (`open`, `message`, `close`,
   `error`, `statechange`) via `on()`
 - A read-only `state` and `getState()` snapshot
+- A pluggable wire-format codec (`codec` option; JSON by default)
 
 ## On the roadmap
 
-A pluggable codec seam, a middleware pipeline, automatic reconnection with
-exponential backoff, message queueing while disconnected, idle detection, and
-channels. Until these land, treat the durability features as a roadmap rather
-than a guarantee — see the
+A middleware pipeline, automatic reconnection with exponential backoff, message
+queueing while disconnected, idle detection, and channels. Until these land,
+treat the durability features as a roadmap rather than a guarantee — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

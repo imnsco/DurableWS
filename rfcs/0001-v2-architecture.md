@@ -362,14 +362,16 @@ console noise. Full test pyramid populated for the core. Everything green.
 **Slices** (each a green, independently reviewable PR; unit + integration tests
 travel in-PR):
 
-- ⬜ **Slice 1 — FSM lifecycle core.** Typed connection FSM (states +
-  transition table + guards) replacing the store's lifecycle role. Every `ws`
-  event maps to a defined transition (kills the close/error dead-transition
-  bug). Bounded read-only observable state (lifecycle only — no messages).
-  Drops the `defineClient` singleton. Strips console noise. `connect()` resolves
-  on first open per the contract above. Inbound messages decoded inline (JSON)
-  and delivered via `on("message")` — never stored.
-- ⬜ **Slice 2 — Codec seam.** Pluggable `encode` / `decode` with a default JSON
+- ✅ **Slice 1 — FSM lifecycle core.** Typed connection FSM (`fsm.ts` —
+  transition table over idle/connecting/open/closing/closed) replacing the
+  store's lifecycle role; illegal `(state, event)` pairs are rejected, killing
+  the close/error dead-transition bug. Standard `WebSocket` event vocabulary
+  (`open`/`message`/`close`/`error`/`statechange`); read-only `state` +
+  `getState()`. `defineClient` singleton dropped; messages-in-state and all
+  console noise removed; `send()` throws when not open. Store, action handlers,
+  and pingpong/logger middleware deleted (pipeline returns in slice 3).
+  (commit `5c26af7`)
+- 🚧 **Slice 2 — Codec seam.** Pluggable `encode` / `decode` with a default JSON
   codec; `config.codec` option. Replaces the inline JSON; folds `safeJSONParse`
   into the default codec; deletes the broken, unused `normalizeURL`.
 - ⬜ **Slice 3 — Middleware pipeline (re-homed).** Standalone pipeline on the
