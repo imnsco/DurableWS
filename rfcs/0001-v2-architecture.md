@@ -326,7 +326,7 @@ Structural only — no behavior change to the library.
   variable until CF secrets + DNS are set. Added a required `Docs` CI job.
   (commit `ce286df`)
 
-### M2 — Core rewrite & correctness 🚧
+### M2 — Core rewrite & correctness ✅
 
 Typed connection FSM; codec seam; middleware pipeline retained; event delivery;
 drop singleton caching; remove messages-in-state; fix the close/error bug; strip
@@ -382,10 +382,12 @@ travel in-PR):
   middleware errors surface as `error` (payload widened to `Event | Error`).
   `pingpong` is opt-in (`middleware.ts`); the default `logger` is gone.
   (commit `5a47c0c`)
-- 🚧 **Slice 4 — Test pyramid + e2e.** Fill coverage gaps across the core; add a
-  Playwright browser e2e harness (real Chromium + real `WebSocket` against a
-  local `ws` echo server, exercising the built ESM bundle); wire test tiers into
-  CI.
+- ✅ **Slice 4 — Test pyramid + e2e.** Filled integration gaps (unsubscribe,
+  frozen `getState()` snapshot, full `statechange` sequence, `connect()` while
+  closing). Added a Playwright browser e2e harness — real Chromium + real
+  `WebSocket` against a local `ws` echo server, driving the built ESM bundle
+  (connect/round-trip/close + reconnect). New `E2E` CI job, added to the branch
+  ruleset's required checks. (commit `b35c511`)
 
 Order is deliberate: the codec defines what "decoded" means, so it precedes the
 middleware that operates on decoded messages.
