@@ -43,6 +43,42 @@ action, reducer, event) onto "a message arrived."
 
 v1 has no users, so v2 is free to break the API.
 
+### 2.1 Positioning & competition
+
+The casual framing "a modern alternative to socket.io" is directionally useful
+but technically wrong for a client-only library: socket.io's gravity is
+**server-side** (rooms, namespaces, broadcast), its clients cannot talk to plain
+WS servers, and its users cannot migrate to us. socket.io defines the *category
+expectations*, not the actual contest.
+
+The real incumbents in our niche — durable clients over the standard
+`WebSocket` — are:
+
+- **`reconnecting-websocket`** — the long-standing default for "WebSocket that
+  reconnects" (hundreds of thousands of weekly downloads) and effectively
+  **abandoned**. This is the market being taken.
+- **`partysocket`** — the maintained fork (PartyKit/Cloudflare), actively
+  growing. This is the rival evaluators will compare us against.
+
+Differentiation vs. both: typed events, the codec seam, middleware, **message
+queueing** (partysocket does not queue), a promise-based `connect()`, and an
+observable FSM. This story must be explicit — a comparison page is among the
+highest-leverage docs we can ship (M4).
+
+Both incumbents win adoption via a **drop-in `WebSocket`-compatible class**
+(swap `new WebSocket(url)` → `new PartySocket(...)`). Our nicer API is a
+*migration cost* for that audience; a thin `durablews/compat` subpath export
+wrapping core in the standard `WebSocket` shape could capture it without
+compromising the primary API (decision tracked in §9).
+
+**Popularity has mechanics, and they are scheduled work, not afterthoughts**
+(all M4): framework bindings (React first — a copy-pasteable hook is worth more
+adoption than any single core feature), typed messages as the DX showcase,
+bundle-size as a marketed asset (zero-dep, few KB — size badge in CI),
+comparison pages, `llms.txt` on the docs site (AI assistants are a top
+discovery channel), runnable `examples/`, and a launch post ("we fixed
+reconnection properly: full jitter, bounded queues, an FSM").
+
 ## 3. Goals / Non-Goals
 
 ### Goals
@@ -84,6 +120,12 @@ v1 has no users, so v2 is free to break the API.
    connection lifecycle  ──►  typed Finite State Machine (the only core state)
 ```
 
+> **Status note (post-M2):** the **inbound** pipeline shipped in M2. The
+> **outbound** pipeline shown above is *planned, not built* — and it matters
+> more than it looks: the #1 real middleware use case is auth (attaching/
+> refreshing tokens on send and connect), which is outbound. Scheduled as M4
+> scope; decision details in §9.
+
 Four distinct seams, deliberately kept separate:
 
 1. **Connection FSM** — owns lifecycle state and transitions.
@@ -95,36 +137,41 @@ Four distinct seams, deliberately kept separate:
 
 The connection lifecycle is a finite state machine, not a generic reducer:
 
+*(This section reflects what shipped in M2; `reconnecting` arrives in M3.)*
+
 ```
-IDLE ──connect──► CONNECTING ──open──► CONNECTED
-  ▲                   │                   │
-  │                   │ error/close       │ close/error
-  │                   ▼                   ▼
-  └──────────── (CLOSED | RECONNECTING) ◄─┘
-                        │
-                        └──retry success──► CONNECTING
+idle ──connect()──► connecting ──open──► open
+  │                     │                  │
+  │            close()  │  closed          │ close() ──► closing ──► closed
+  │                     ▼                  │                            │
+  └──────────────────► closed ◄────────────┘          connect() ────────┘
+                        (M3: closed-unexpectedly ──► reconnecting ──► connecting)
 ```
 
-States: `IDLE`, `CONNECTING`, `CONNECTED`, `RECONNECTING`, `CLOSED`.
+States (lowercase, matching the web platform's vocabulary): `idle`,
+`connecting`, `open`, `closing`, `closed` — plus `reconnecting` in M3.
 
-Transitions are **guarded**: an event that is not a legal transition from the
-current state is rejected/ignored explicitly rather than silently doing nothing.
-This makes the v1 `close`/`closed` class of bug impossible by construction.
+Transitions are **guarded by a transition table** (`fsm.ts`): an illegal
+`(state, event)` pair is the *absence of a table entry* and is rejected
+explicitly rather than silently doing nothing. This makes the v1
+`close`/`closed` class of bug impossible by construction. Transport errors are
+deliberately *not* FSM events — an `error` does not itself change connection
+state (the subsequent `close` performs the transition); errors are recorded
+(`lastError`) and emitted out-of-band.
 
-The FSM exposes a small, **bounded, observable** state for framework bindings:
+The client exposes a small, **bounded, observable** state:
 
 ```ts
-interface ConnectionState {
-  status: "idle" | "connecting" | "connected" | "reconnecting" | "closed";
-  lastError?: Error;
-  retryAttempt: number;
-  queueLength: number;
-}
+client.state;                    // ConnectionState (live getter)
+client.getState();               // frozen { state, lastError } snapshot
+client.on("statechange", ({ previous, current }) => { /* ... */ });
 ```
 
-Observable via `subscribe(listener)` / `getState()` so a React
-`useSyncExternalStore` adapter (and Vue/Svelte equivalents) is trivial. This is
-the **only** state core owns. It never grows unbounded.
+`retryAttempt` and `queueLength` join the snapshot as M3's features land. The
+`on("statechange")` + `getState()` pair is the `subscribe`/`getSnapshot` shape
+a React `useSyncExternalStore` adapter needs (bindings are scheduled M4 work,
+not an afterthought — see §2.1). This is the **only** state core owns. It never
+grows unbounded.
 
 ### 4.3 Codec — the wire seam
 
@@ -254,6 +301,10 @@ The pyramid is established in **M1**, not deferred:
   WebSocket server, executed in *real* runtimes — Node, a browser via
   Playwright, and at least one of Deno/Bun. This tier verifies the multi-runtime
   claim; an untested claim is a false claim.
+  **Status (post-M2): browser ✅ (Playwright Chromium, required CI check);
+  Node-as-client ⬜; Deno/Bun ⬜.** By this section's own standard, the
+  multi-runtime claim is only one-third verified — the remaining runtimes are
+  scheduled M4 scope (§8).
 
 Tests must assert **state correctness**, not merely that events fired (the gap
 that hid the v1 close bug).
@@ -284,6 +335,14 @@ that hid the v1 close bug).
   First-class, not an afterthought.
 - **CI:** runs on PRs (not just push), and must typecheck + Biome lint + build +
   run the full pyramid + publish validation (publint/attw).
+- **Advisory next-TypeScript typecheck (planned):** a `typecheck:next` script +
+  **non-blocking** CI job running `tsc` from `typescript@next`. Rationale: a
+  TS 6.0-nightly editor flagged a real type hole (`Codec.encode` returning
+  `SharedArrayBuffer`-compatible types that `WebSocket.send` rejects under
+  6.0's stricter `lib.dom.d.ts`) that stable `tsc` cannot see. Gating merges on
+  a nightly compiler is a footgun, so the job is advisory — it makes
+  next-TypeScript breakage visible without blocking. (The code fix itself lands
+  via PR #18's thread.)
 - **Release:** changesets-driven automated publish of the lib to npm (the only
   published artifact); `files`/`exports` scope exactly what ships.
 - **Branch strategy:** work on `main` during v2 development (no users to
@@ -438,11 +497,36 @@ separate test/e2e slice.
   timeout that forces a reconnect on a silent link. E2e: heartbeat-triggered
   recovery.
 
-### M4 — Docs content, first add-ons & 2.0 release ⬜
+### M4 — Adoption: docs, bindings, typed DX & 2.0 release ⬜
 
-API reference + guides + migration content on the site; first
-codecs/middleware/plugins as subpath exports; automated npm release of
-`durablews@2.0.0`.
+Renamed from "docs content & add-ons" — M4 is the **adoption milestone**. The
+premise (§2.1): libraries don't become popular at 1.0; they become popular when
+a React dev copies a hook from a docs page. Slicing to be finalized when M3
+completes; scope is tracked here so it doesn't get lost:
+
+- ⬜ **Framework bindings — the headline.** `durablews/react`
+  (`useSyncExternalStore` over `statechange`/`getState()`); Vue/Svelte
+  fast-follows. Promoted from "trivial, someday" to explicit scope.
+- ⬜ **Typed messages as the DX showcase.** A real typed event map
+  (`defineClient<MyMessages>(...)`), not the `on<ChatMessage>(...)` cast the
+  earlier API sketch showed. Optional schema validation at the codec seam via
+  **Standard Schema** (zod/valibot/arktype all conform) — genuinely
+  differentiating in this niche.
+- ⬜ **Outbound middleware** (per §4.1 status note) — the auth use case:
+  attach/refresh tokens on send and connect.
+- ⬜ **`durablews/compat` decision** — drop-in `WebSocket`-shaped class to
+  capture the `reconnecting-websocket`/`partysocket` migration audience (§2.1;
+  open question in §9). Decide, then build or explicitly reject.
+- ⬜ **Cross-runtime e2e completion** (per §6): Node-as-client + Deno/Bun
+  runners, closing the multi-runtime claim.
+- ⬜ **Docs content.** API reference, guides, migration content — including a
+  **comparison page** (vs `reconnecting-websocket`, `partysocket`, socket.io
+  category expectations) and **`llms.txt`** for AI-assistant discovery.
+- ⬜ **Distribution assets.** Bundle-size badge enforced in CI (size-limit);
+  runnable `examples/`; launch post ("we fixed reconnection properly: full
+  jitter, bounded queues, an FSM").
+- ⬜ **First add-ons as subpath exports** (codecs/middleware/plugins) and the
+  **automated npm release of `durablews@2.0.0`** via changesets.
 
 ## 9. Open questions
 
@@ -458,4 +542,16 @@ codecs/middleware/plugins as subpath exports; automated npm release of
   `error`/`statechange`). Option names refined as each seam lands.
 - Whether channels are the only plugin-shaped feature (which would let us drop
   the umbrella "plugin" concept from the public vocabulary).
+- **`connect()` can never settle under default config.** With
+  `maxRetries: Infinity` (the M3 default), "rejects on retries-exhausted" means
+  the promise never rejects — an app `await`ing `connect()` against a dead host
+  hangs silently. Arguably correct for "durable by default," but decide: add a
+  `connectTimeout` option, or document the hang as intended? (Decide in M3
+  slice 1.)
+- **`durablews/compat`** — ship a drop-in `WebSocket`-shaped wrapper to capture
+  the `reconnecting-websocket`/`partysocket` migration audience, or explicitly
+  reject it? (Decide in M4; see §2.1.)
+- **Outbound middleware shape** — same onion pipeline mirrored, or a distinct
+  hook (`onSend`)? Auth (token attach/refresh) is the driving use case. (Decide
+  in M4.)
 ```
