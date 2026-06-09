@@ -7,11 +7,11 @@
     "compatibility_flags": ["nodejs_compat"],
     "assets": {
         "binding": "ASSETS",
-        "directory": "./dist"
+        "directory": "./dist",
     },
     "observability": {
-        "enabled": true
+        "enabled": true,
     },
     "keep_vars": true,
-    "routes": [{ "pattern": "durablews.imns.co", "custom_domain": true }]
+    "routes": [{ "pattern": "durablews.imns.co", "custom_domain": true }],
 }
