@@ -52,11 +52,12 @@ client.close();
   `error`, `statechange`) via `on()`
 - A read-only `state` and `getState()` snapshot
 - A pluggable wire-format codec (`codec` option; JSON by default)
+- A message middleware pipeline (`use()`), with an opt-in `pingpong` keepalive
 
 ## On the roadmap
 
-A middleware pipeline, automatic reconnection with exponential backoff, message
-queueing while disconnected, idle detection, and channels. Until these land,
-treat the durability features as a roadmap rather than a guarantee — see the
+Automatic reconnection with exponential backoff, message queueing while
+disconnected, idle detection, and channels. Until these land, treat the
+durability features as a roadmap rather than a guarantee — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

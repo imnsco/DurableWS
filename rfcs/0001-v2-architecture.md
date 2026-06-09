@@ -371,10 +371,12 @@ travel in-PR):
   console noise removed; `send()` throws when not open. Store, action handlers,
   and pingpong/logger middleware deleted (pipeline returns in slice 3).
   (commit `5c26af7`)
-- 🚧 **Slice 2 — Codec seam.** Pluggable `encode` / `decode` with a default JSON
-  codec; `config.codec` option. Replaces the inline JSON; folds `safeJSONParse`
-  into the default codec; deletes the broken, unused `normalizeURL`.
-- ⬜ **Slice 3 — Middleware pipeline (re-homed).** Standalone pipeline on the
+- ✅ **Slice 2 — Codec seam.** Pluggable `encode` / `decode` with a default JSON
+  codec (`codec.ts` / `jsonCodec`); `config.codec` option. Replaced the inline
+  JSON; folded `safeJSONParse` into the default codec; deleted the broken,
+  unused `normalizeURL` (and the now-empty `utils.ts`). `Codec` + `jsonCodec`
+  exported. (commit `aa71812`)
+- 🚧 **Slice 3 — Middleware pipeline (re-homed).** Standalone pipeline on the
   decoded-message path (not lifecycle). `pingpong` becomes opt-in; the
   default `logger` is dropped. `client.use(...)` retained.
 - ⬜ **Slice 4 — Test pyramid + e2e.** Fill coverage gaps across the core; add a

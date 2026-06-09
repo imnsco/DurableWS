@@ -64,6 +64,32 @@ export interface ClientState {
 }
 
 /**
+ * The context handed to each message middleware.
+ */
+export interface MessageContext {
+    /**
+     * The decoded inbound message. Middleware may reassign this to transform
+     * what later middleware — and the `message` event — receive.
+     */
+    data: unknown;
+    /** The client, e.g. for sending a reply from within the pipeline. */
+    readonly client: WebSocketClient;
+}
+
+/**
+ * Message middleware, run in registration order for each inbound message.
+ *
+ * Call `next()` to pass control to the next middleware; the message is emitted
+ * as a `message` event only if the whole chain calls through. Return without
+ * calling `next()` to short-circuit (e.g. an auto-reply that shouldn't bubble).
+ * May be async.
+ */
+export type Middleware = (
+    ctx: MessageContext,
+    next: () => void | Promise<void>
+) => void | Promise<void>;
+
+/**
  * Payload emitted on every `statechange`.
  */
 export interface StateChange {
@@ -84,8 +110,11 @@ export interface ClientEventMap {
     message: unknown;
     /** The socket closed (clean or otherwise). */
     close: CloseEvent;
-    /** A transport error occurred. */
-    error: Event;
+    /**
+     * Something failed: a transport error (an `Event` from the socket) or a
+     * middleware that threw/rejected (an `Error`).
+     */
+    error: Event | Error;
     /** The connection state changed. */
     statechange: StateChange;
 }
@@ -132,6 +161,12 @@ export interface WebSocketClient {
         event: K,
         handler: (payload: ClientEventMap[K]) => void
     ): () => void;
+
+    /**
+     * Registers message middleware, run in order for each inbound message.
+     * @returns the client, for chaining.
+     */
+    use(middleware: Middleware): WebSocketClient;
 
     /**
      * Returns a read-only snapshot of the client's observable state.
