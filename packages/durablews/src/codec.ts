@@ -13,15 +13,32 @@ function safeJSONParse(data: string): unknown {
 }
 
 /**
- * The default codec: JSON over text frames.
+ * Whether a value is already a WebSocket-sendable binary frame and should be
+ * passed through rather than JSON-encoded (`ArrayBuffer`, any typed array or
+ * `DataView`, or a `Blob`).
+ */
+function isBinary(
+    data: unknown
+): data is ArrayBufferLike | ArrayBufferView | Blob {
+    return (
+        data instanceof ArrayBuffer ||
+        ArrayBuffer.isView(data) ||
+        (typeof Blob !== "undefined" && data instanceof Blob)
+    );
+}
+
+/**
+ * The default codec: JSON over text frames, binary passed through.
  *
- * - `encode` — strings are sent verbatim; everything else is `JSON.stringify`d.
+ * - `encode` — strings and binary frames (`ArrayBuffer`/typed arrays/`Blob`)
+ *   are sent verbatim; everything else is `JSON.stringify`d.
  * - `decode` — text frames are JSON-parsed (falling back to the raw string);
- *   binary frames (`ArrayBuffer`/`Blob`) are passed through untouched.
+ *   binary frames are passed through untouched.
  */
 export const jsonCodec: Codec = {
     encode(data: unknown) {
-        return typeof data === "string" ? data : JSON.stringify(data);
+        if (typeof data === "string" || isBinary(data)) return data;
+        return JSON.stringify(data);
     },
     decode(data: unknown) {
         return typeof data === "string" ? safeJSONParse(data) : data;
