@@ -55,7 +55,9 @@ export function defineEventBus(): EventBus {
         handler: (payload: T) => void
     ) {
         const handlers = listeners.get(eventName);
-        if (!handlers) return;
+        if (!handlers) {
+            return;
+        }
         listeners.set(
             eventName,
             handlers.filter((h) => h !== handler)

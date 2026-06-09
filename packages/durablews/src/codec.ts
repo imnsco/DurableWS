@@ -37,7 +37,9 @@ function isBinary(
  */
 export const jsonCodec: Codec = {
     encode(data: unknown) {
-        if (typeof data === "string" || isBinary(data)) return data;
+        if (typeof data === "string" || isBinary(data)) {
+            return data;
+        }
         return JSON.stringify(data);
     },
     decode(data: unknown) {

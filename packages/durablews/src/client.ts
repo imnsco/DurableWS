@@ -55,7 +55,9 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
      */
     function transition(event: ConnectionEvent): ConnectionState | null {
         const next = nextState(state, event);
-        if (next === null || next === state) return null;
+        if (next === null || next === state) {
+            return null;
+        }
 
         const previous = state;
         state = next;
@@ -141,8 +143,12 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         },
 
         connect() {
-            if (state === "open") return Promise.resolve();
-            if (state === "connecting" && pending) return pending.promise;
+            if (state === "open") {
+                return Promise.resolve();
+            }
+            if (state === "connecting" && pending) {
+                return pending.promise;
+            }
             if (state === "closing") {
                 return Promise.reject(
                     new Error(
@@ -189,7 +195,9 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         },
 
         close(code?: number, reason?: string) {
-            if (!socket) return;
+            if (!socket) {
+                return;
+            }
             transition("CLOSE_REQUESTED");
             socket.close(code, reason);
         },
