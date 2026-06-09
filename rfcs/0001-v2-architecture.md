@@ -376,11 +376,16 @@ travel in-PR):
   JSON; folded `safeJSONParse` into the default codec; deleted the broken,
   unused `normalizeURL` (and the now-empty `utils.ts`). `Codec` + `jsonCodec`
   exported. (commit `aa71812`)
-- 🚧 **Slice 3 — Middleware pipeline (re-homed).** Standalone pipeline on the
-  decoded-message path (not lifecycle). `pingpong` becomes opt-in; the
-  default `logger` is dropped. `client.use(...)` retained.
-- ⬜ **Slice 4 — Test pyramid + e2e.** Fill coverage gaps across the core; add a
-  Playwright browser e2e harness; wire test tiers into CI.
+- ✅ **Slice 3 — Middleware pipeline (re-homed).** Standalone onion-model
+  pipeline (`pipeline.ts`) on the decoded-message path; `client.use()` returns
+  the client for chaining; short-circuit when a middleware skips `next()`;
+  middleware errors surface as `error` (payload widened to `Event | Error`).
+  `pingpong` is opt-in (`middleware.ts`); the default `logger` is gone.
+  (commit `5a47c0c`)
+- 🚧 **Slice 4 — Test pyramid + e2e.** Fill coverage gaps across the core; add a
+  Playwright browser e2e harness (real Chromium + real `WebSocket` against a
+  local `ws` echo server, exercising the built ESM bundle); wire test tiers into
+  CI.
 
 Order is deliberate: the codec defines what "decoded" means, so it precedes the
 middleware that operates on decoded messages.

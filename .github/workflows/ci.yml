@@ -101,3 +101,22 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build docs site
         run: pnpm -F docs build
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm -F durablews e2e:install
+      - name: Run browser e2e
+        run: pnpm -F durablews e2e

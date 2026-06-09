@@ -233,4 +233,44 @@ describe("client", () => {
         await connected();
         expect(ws.state).toBe("open");
     });
+
+    it("on() returns an unsubscribe that stops delivery", async () => {
+        await connected();
+        const onMessage = vi.fn();
+        const off = ws.on("message", onMessage);
+
+        server.send(JSON.stringify({ n: 1 }));
+        expect(onMessage).toHaveBeenCalledTimes(1);
+
+        off();
+        server.send(JSON.stringify({ n: 2 }));
+        expect(onMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it("getState() returns a frozen snapshot", async () => {
+        await connected();
+        const snapshot = ws.getState();
+        expect(Object.isFrozen(snapshot)).toBe(true);
+        expect(snapshot).toEqual({ state: "open", lastError: null });
+    });
+
+    it("emits the full statechange sequence across a connect/close cycle", async () => {
+        const states: string[] = [];
+        ws.on("statechange", ({ current }) => states.push(current));
+
+        await connected();
+        ws.close();
+        await server.closed;
+
+        expect(states).toEqual(["connecting", "open", "closing", "closed"]);
+    });
+
+    it("connect() while closing rejects", async () => {
+        await connected();
+        ws.close();
+        expect(ws.state).toBe("closing");
+
+        await expect(ws.connect()).rejects.toThrow(/closing/);
+        await server.closed;
+    });
 });

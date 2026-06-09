@@ -28,6 +28,8 @@
         "build": "tsup",
         "test": "vitest",
         "test:run": "vitest run",
+        "e2e": "pnpm run build && playwright test",
+        "e2e:install": "playwright install --with-deps chromium",
         "typecheck": "tsc --noEmit",
         "check:publish": "publint && attw --pack .",
         "prepublishOnly": "pnpm build"
@@ -69,12 +71,15 @@
     ],
     "devDependencies": {
         "@arethetypeswrong/cli": "^0.18.3",
+        "@playwright/test": "^1.60.0",
         "@types/node": "^20.11.17",
+        "@types/ws": "^8.18.1",
         "jsdom": "^24.0.0",
         "publint": "^0.3.21",
         "tsup": "^8.5.1",
         "typescript": "^5.3.3",
         "vitest": "^1.2.2",
-        "vitest-websocket-mock": "^0.3.0"
+        "vitest-websocket-mock": "^0.3.0",
+        "ws": "^8.21.0"
     }
 }
