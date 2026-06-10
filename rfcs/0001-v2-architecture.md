@@ -578,10 +578,17 @@ stops moving; release is last.
   codecs, middleware, framework pages), migration-from-v1 note, the
   **comparison page** (vs `reconnecting-websocket`, `partysocket`, socket.io
   category expectations), and **`llms.txt`** for AI-assistant discovery.
-- ⬜ **Slice 5 — `durablews/compat` decision.** Decide build-or-reject (§9);
-  if built: a drop-in `WebSocket`-shaped class over core for the
-  `reconnecting-websocket`/`partysocket` migration audience, with a migration
-  docs page.
+- ⬜ **Slice 5 — `durablews/compat` (decision: build, with scoped fidelity).**
+  A drop-in `WebSocket`-shaped class over core for two documented audiences:
+  app-code one-line migration (the `reconnecting-websocket`/`partysocket`
+  crowd) and **`webSocketImpl`-style injection points** in existing libraries
+  (graphql-ws, y-websocket, realtime SDKs) — durability injected into whole
+  ecosystems that never learn durablews exists. Fidelity is deliberately
+  scoped to those two use cases with a published "known deviations" table
+  (e.g. `readyState` re-entering `CONNECTING` across reconnects, which the
+  spec's one-shot lifecycle forbids) — no quixotic spec-perfection, since a
+  subtly unfaithful impostor is worse than a documented one. Migration docs
+  page included.
 - ⬜ **Slice 6 — Cross-runtime e2e + distribution assets.** Node-as-client +
   Deno/Bun e2e (closing §6's claim); size-limit budget enforced in CI + badge;
   runnable `examples/`.
@@ -610,9 +617,10 @@ stops moving; release is last.
   (`Promise.race([client.connect(), timeout(ms)])`) while complicating the
   contract. Escape hatches: finite `maxRetries`, `shouldReconnect`, or the
   race. Documented prominently in the `connect()` JSDoc and getting-started.
-- **`durablews/compat`** — ship a drop-in `WebSocket`-shaped wrapper to capture
-  the `reconnecting-websocket`/`partysocket` migration audience, or explicitly
-  reject it? (Decide in M4; see §2.1.)
+- ~~`durablews/compat` — build or reject?~~ **Settled: build, with scoped
+  fidelity** (M4 slice 5). Faithful for two documented use cases — app-code
+  drop-in and `webSocketImpl`-style injection — with a published known-
+  deviations table rather than spec perfection. See §8 M4 slice 5.
 - **Outbound middleware shape** — same onion pipeline mirrored, or a distinct
   hook (`onSend`)? Auth (token attach/refresh) is the driving use case. (Decide
   in M4.)
