@@ -56,6 +56,11 @@ client.close();
   order when the socket opens. Dropped messages are never silent: every one
   fires a `drop` event (`{ data, reason }`). Tune via `queue: { maxSize }` or
   restore throw-when-not-open with `queue: false`.
+- **Heartbeat / idle detection, opt-in** — set
+  `heartbeat: { interval, message?, timeout? }` and the client pings while
+  open; if no inbound traffic answers within `timeout`, the link is declared
+  dead (close code `4408`) and the normal reconnect machinery takes over.
+  Opt-in because it requires a server that answers the ping.
 - Connect / send / close over the standard `WebSocket`, driven by an explicit
   connection state machine
 - Incoming-message handling and lifecycle events (`open`, `message`, `close`,
@@ -75,7 +80,6 @@ it: `Promise.race([client.connect(), timeout(10_000)])`.
 
 ## On the roadmap
 
-Idle detection (opt-in heartbeat) and channels. Until these land, treat them as
-a roadmap rather than a guarantee — see the
+Framework bindings (React first), typed message maps, and channels — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

@@ -152,3 +152,52 @@ test("flushes messages queued while disconnected once reconnected", async ({
     expect(result.finalState).toBe("open");
     expect(result.echoed).toContain("queued-while-down");
 });
+
+test("heartbeat detects a silent link and recovers through reconnect", async ({
+    page
+}) => {
+    await page.goto("/e2e/app.html");
+
+    const result = await page.evaluate(async (wsUrl) => {
+        const { defineClient } = await import("/dist/index.js");
+        const ws = defineClient({
+            url: wsUrl,
+            reconnect: { baseDelay: 50, jitter: false },
+            heartbeat: { interval: 100, timeout: 80 }
+        });
+        const states: string[] = [];
+        ws.on("statechange", ({ current }: { current: string }) =>
+            states.push(current)
+        );
+        const errors: string[] = [];
+        ws.on("error", (e: unknown) => {
+            if (e instanceof Error) {
+                errors.push(e.message);
+            }
+        });
+        const closeCodes: number[] = [];
+        ws.on("close", (e: { code: number }) => closeCodes.push(e.code));
+
+        await ws.connect();
+        ws.send("mute"); // the server goes silent on this connection
+
+        // Silent link: pings get no reply → 4408 close → reconnect lands on a
+        // fresh, unmuted connection.
+        await new Promise((r) => setTimeout(r, 800));
+        const recovered = ws.state;
+
+        const echoed: unknown[] = [];
+        ws.on("message", (m: unknown) => echoed.push(m));
+        ws.send("alive-again");
+        await new Promise((r) => setTimeout(r, 200));
+        ws.close();
+
+        return { states, errors, closeCodes, recovered, echoed };
+    }, `ws://localhost:${server.port}`);
+
+    expect(result.errors.some((m) => /heartbeat timeout/i.test(m))).toBe(true);
+    expect(result.closeCodes).toContain(4408);
+    expect(result.states).toContain("reconnecting");
+    expect(result.recovered).toBe("open");
+    expect(result.echoed).toContain("alive-again");
+});
