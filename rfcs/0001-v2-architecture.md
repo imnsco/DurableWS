@@ -570,8 +570,11 @@ stops moving; release is last.
   (`SchemaValidationError` with the spec's issues), never as `message`; async
   `validate` supported. Compile-time tests via `expectTypeOf` + runtime
   validation suite.
-- ⬜ **Slice 2 — Reactive seam + Vue & React bindings.** Core
-  `subscribe(listener)` over the full snapshot (per the decision above), then
+- 🚧 **Slice 2 — Reactive seam + Vue & React bindings.** *(Lands as two PRs:
+  2a the core seam — done; 2b the bindings.)* Core
+  `subscribe(listener)` over the full snapshot (per the decision above) —
+  including the `getState()` **snapshot caching** that referential-equality
+  consumers like `useSyncExternalStore` require — then
   `durablews/vue` (`useWebSocket` composable: reactive state, auto-cleanup on
   scope dispose) and `durablews/react` (`useWebSocket` via
   `useSyncExternalStore`) as subpath exports with optional peers. Each gets a

@@ -829,3 +829,104 @@ describe("schema validation", () => {
         c.close();
     });
 });
+
+describe("subscribe / snapshot", () => {
+    const BURL = "ws://localhost:1244";
+    let server: WS;
+
+    afterEach(() => {
+        WS.clean();
+    });
+
+    async function open(c: WebSocketClient) {
+        const opened = c.connect();
+        await server.connected;
+        await opened;
+    }
+
+    it("getState() is referentially stable until something changes", async () => {
+        server = new WS(BURL);
+        const c = client({ url: BURL, reconnect: false });
+
+        const a = c.getState();
+        const b = c.getState();
+        expect(b).toBe(a); // same frozen object — useSyncExternalStore-safe
+
+        await open(c);
+        const after = c.getState();
+        expect(after).not.toBe(a);
+        expect(after).toBe(c.getState());
+        expect(after.state).toBe("open");
+        c.close();
+    });
+
+    it("fires on connection state changes", async () => {
+        server = new WS(BURL);
+        const c = client({ url: BURL, reconnect: false });
+        const listener = vi.fn();
+        c.subscribe(listener);
+
+        await open(c);
+        // connecting + open — at least two notifications.
+        expect(listener.mock.calls.length).toBeGreaterThanOrEqual(2);
+        c.close();
+    });
+
+    it("fires on queue growth, which is NOT an FSM transition", async () => {
+        server = new WS(BURL);
+        const c = client({ url: BURL, reconnect: false });
+        c.connect().catch(() => {});
+
+        const listener = vi.fn();
+        c.subscribe(listener);
+        const before = c.getState();
+        expect(before.queueLength).toBe(0);
+
+        c.send("queued-while-connecting");
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        const after = c.getState();
+        expect(after).not.toBe(before);
+        expect(after.queueLength).toBe(1);
+        c.close();
+    });
+
+    it("fires when a transport error records lastError", async () => {
+        server = new WS(BURL);
+        const c = client({ url: BURL, reconnect: false });
+        await open(c);
+
+        const listener = vi.fn();
+        c.subscribe(listener);
+        server.error();
+
+        expect(listener).toHaveBeenCalled();
+        expect(c.getState().lastError).not.toBeNull();
+    });
+
+    it("unsubscribe stops notifications", async () => {
+        server = new WS(BURL);
+        const c = client({ url: BURL, reconnect: false });
+        const listener = vi.fn();
+        const unsubscribe = c.subscribe(listener);
+        unsubscribe();
+
+        await open(c);
+        expect(listener).not.toHaveBeenCalled();
+        c.close();
+    });
+
+    it("listeners read a fresh snapshot from inside the notification", async () => {
+        server = new WS(BURL);
+        const c = client({ url: BURL, reconnect: false });
+        const seen: string[] = [];
+        c.subscribe(() => {
+            seen.push(c.getState().state);
+        });
+
+        await open(c);
+        expect(seen).toContain("connecting");
+        expect(seen).toContain("open");
+        c.close();
+    });
+});
