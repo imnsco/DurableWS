@@ -44,6 +44,44 @@ client.send({ type: "hello", message: "world" });
 client.close();
 ```
 
+## Typed (and validated) messages
+
+Pass any [Standard Schema](https://standardschema.dev) — zod, valibot,
+arktype, … — and you get **both** static types and runtime validation, with
+zero added dependencies:
+
+```ts
+import { z } from "zod";
+import { defineClient } from "durablews";
+
+const Message = z.object({ type: z.string(), body: z.string() });
+
+const client = defineClient({
+    url: "wss://example.com/socket",
+    schema: Message
+});
+
+client.on("message", (msg) => {
+    // msg is { type: string; body: string } — inferred from the schema,
+    // and every inbound message was validated at runtime.
+});
+
+client.on("error", (err) => {
+    // Invalid inbound messages arrive here as SchemaValidationError
+    // (with the schema's issues) instead of reaching your handler.
+});
+```
+
+Validation runs after the codec decodes and **before** middleware, so
+middleware and handlers only ever see trusted data.
+
+Prefer types without runtime checks? Use generics:
+
+```ts
+const client = defineClient<Incoming, Outgoing>({ url });
+// on("message") receives Incoming; send() accepts Outgoing
+```
+
 ## What works today
 
 - **Automatic reconnection, on by default** — full-jitter exponential backoff
@@ -68,6 +106,8 @@ client.close();
 - A read-only `state` and `getState()` snapshot (incl. `retryAttempt` and
   `queueLength`)
 - A pluggable wire-format codec (`codec` option; JSON by default)
+- **Typed + validated messages** via any Standard Schema (`schema` option),
+  or plain generics (`defineClient<In, Out>`)
 - A message middleware pipeline (`use()`), with an opt-in `pingpong` keepalive
 
 :::note[`connect()` and unlimited retries]
@@ -80,6 +120,7 @@ it: `Promise.race([client.connect(), timeout(10_000)])`.
 
 ## On the roadmap
 
-Framework bindings (React first), typed message maps, and channels — see the
+Framework bindings (Vue and React, co-equal), a drop-in `WebSocket`-compatible
+compat class, and channels — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

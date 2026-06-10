@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WS from "vitest-websocket-mock";
 import { client } from "../src/client";
 import { pingpong } from "../src/middleware";
+import { SchemaValidationError } from "../src/schema";
 import type { Middleware, WebSocketClient } from "../src/types";
 
 const URL = "ws://localhost:1234";
@@ -684,5 +685,147 @@ describe("heartbeat", () => {
 
         await new Promise((r) => setTimeout(r, 60));
         expect(server.messages.length).toBe(sentSoFar);
+    });
+});
+
+describe("schema validation", () => {
+    const SURL = "ws://localhost:1243";
+    let server: WS;
+
+    afterEach(() => {
+        WS.clean();
+    });
+
+    /** A minimal Standard Schema: object with a numeric `n`, else issues. */
+    const nSchema = {
+        "~standard": {
+            version: 1 as const,
+            vendor: "durablews-tests",
+            validate: (value: unknown) => {
+                const ok =
+                    typeof value === "object" &&
+                    value !== null &&
+                    typeof (value as { n?: unknown }).n === "number";
+                return ok
+                    ? { value: value as { n: number } }
+                    : { issues: [{ message: "expected { n: number }" }] };
+            }
+        }
+    };
+
+    async function open(c: WebSocketClient) {
+        const opened = c.connect();
+        await server.connected;
+        await opened;
+    }
+
+    it("emits valid messages with the schema's output value", async () => {
+        server = new WS(SURL);
+        const c = client({ url: SURL, reconnect: false, schema: nSchema });
+        const onMessage = vi.fn();
+        c.on("message", onMessage);
+        await open(c);
+
+        server.send(JSON.stringify({ n: 7 }));
+
+        expect(onMessage).toHaveBeenCalledWith({ n: 7 });
+        c.close();
+    });
+
+    it("surfaces invalid messages as SchemaValidationError, never as message", async () => {
+        server = new WS(SURL);
+        const c = client({ url: SURL, reconnect: false, schema: nSchema });
+        const onMessage = vi.fn();
+        const onError = vi.fn();
+        c.on("message", onMessage);
+        c.on("error", onError);
+        await open(c);
+
+        server.send(JSON.stringify({ wrong: true }));
+
+        expect(onMessage).not.toHaveBeenCalled();
+        expect(onError).toHaveBeenCalledTimes(1);
+        const error = onError.mock.calls[0][0];
+        expect(error).toBeInstanceOf(SchemaValidationError);
+        expect((error as SchemaValidationError).issues).toEqual([
+            { message: "expected { n: number }" }
+        ]);
+        c.close();
+    });
+
+    it("validation runs before middleware: invalid data never reaches it", async () => {
+        server = new WS(SURL);
+        const c = client({ url: SURL, reconnect: false, schema: nSchema });
+        const sawMiddleware = vi.fn();
+        c.use((_ctx, next) => {
+            sawMiddleware();
+            return next();
+        });
+        await open(c);
+
+        server.send(JSON.stringify({ wrong: true }));
+        expect(sawMiddleware).not.toHaveBeenCalled();
+
+        server.send(JSON.stringify({ n: 1 }));
+        expect(sawMiddleware).toHaveBeenCalledTimes(1);
+        c.close();
+    });
+
+    it("supports async validate()", async () => {
+        server = new WS(SURL);
+        const asyncSchema = {
+            "~standard": {
+                version: 1 as const,
+                vendor: "durablews-tests",
+                validate: async (value: unknown) => {
+                    await Promise.resolve();
+                    return typeof value === "number"
+                        ? { value }
+                        : { issues: [{ message: "not a number" }] };
+                }
+            }
+        };
+        const c = client({ url: SURL, reconnect: false, schema: asyncSchema });
+        const onMessage = vi.fn();
+        const onError = vi.fn();
+        c.on("message", onMessage);
+        c.on("error", onError);
+        await open(c);
+
+        server.send("42"); // JSON-decodes to the number 42
+        server.send(JSON.stringify({ nope: true }));
+        await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+
+        expect(onMessage).toHaveBeenCalledWith(42);
+        expect(onError.mock.calls[0][0]).toBeInstanceOf(SchemaValidationError);
+        c.close();
+    });
+
+    it("a validate() that throws surfaces as an error event", async () => {
+        server = new WS(SURL);
+        const throwingSchema = {
+            "~standard": {
+                version: 1 as const,
+                vendor: "durablews-tests",
+                validate: () => {
+                    throw new Error("validator exploded");
+                }
+            }
+        };
+        const c = client({
+            url: SURL,
+            reconnect: false,
+            schema: throwingSchema
+        });
+        const onError = vi.fn();
+        c.on("error", onError);
+        await open(c);
+
+        server.send("1");
+
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({ message: "validator exploded" })
+        );
+        c.close();
     });
 });

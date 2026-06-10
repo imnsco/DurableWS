@@ -5,6 +5,7 @@ import { HEARTBEAT_TIMEOUT_CODE, resolveHeartbeat } from "@/heartbeat";
 import { defineEventBus } from "@/helpers/event-bus";
 import { runPipeline } from "@/pipeline";
 import { resolveQueue } from "@/queue";
+import { SchemaValidationError, type StandardSchemaV1 } from "@/schema";
 import type {
     ClientEventMap,
     ClientState,
@@ -272,12 +273,45 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     }
 
     /**
-     * Runs a decoded inbound message through the middleware chain. If the chain
-     * completes, the message is emitted as `message`; a middleware that throws
-     * or rejects surfaces as an `error`.
+     * Runs a decoded — and, if a schema is configured, validated — inbound
+     * message through the middleware chain. If the chain completes, the
+     * message is emitted as `message`; a middleware that throws or rejects
+     * surfaces as an `error`. Validation precedes middleware, so middleware
+     * only ever sees trusted data; an invalid message surfaces as an `error`
+     * (`SchemaValidationError`) and never reaches middleware or `message`.
      */
     function deliver(raw: unknown) {
-        const ctx = { data: codec.decode(raw), client: api };
+        const decoded = codec.decode(raw);
+        if (config.schema === undefined) {
+            dispatchMessage(decoded);
+            return;
+        }
+        let result: ReturnType<StandardSchemaV1["~standard"]["validate"]>;
+        try {
+            result = config.schema["~standard"].validate(decoded);
+        } catch (error) {
+            bus.emit("error", toError(error));
+            return;
+        }
+        if (result instanceof Promise) {
+            result.then(handleValidated, (error: unknown) => {
+                bus.emit("error", toError(error));
+            });
+            return;
+        }
+        handleValidated(result);
+    }
+
+    function handleValidated(result: StandardSchemaV1.Result<unknown>) {
+        if (result.issues) {
+            bus.emit("error", new SchemaValidationError(result.issues));
+            return;
+        }
+        dispatchMessage(result.value);
+    }
+
+    function dispatchMessage(data: unknown) {
+        const ctx = { data, client: api };
         const emit = () => {
             bus.emit("message", ctx.data);
         };
