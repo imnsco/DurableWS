@@ -3,6 +3,9 @@ name: Release
 on:
   push:
     branches: [main]
+  # Manual runs from the Actions UI (e.g. to open/refresh the Version
+  # Packages PR without waiting for a merge).
+  workflow_dispatch:
 
 concurrency: release-${{ github.ref }}
 
@@ -15,10 +18,14 @@ jobs:
   release:
     name: Version or publish
     runs-on: ubuntu-latest
-    # Kill switch: set the NPM_PUBLISH_ENABLED repo variable to "true".
-    if: github.repository == 'imnsco/DurableWS' && vars.NPM_PUBLISH_ENABLED == 'true'
+    if: github.repository == 'imnsco/DurableWS'
     # Must match the npm Trusted Publisher registration (repo + workflow
     # file + environment); the OIDC token carries the environment claim.
+    #
+    # No publish gate needed: with changesets pending this only maintains
+    # the "Version Packages" PR — the deliberate human act of merging that
+    # PR is what publishes. Emergency stop: Actions UI → Release →
+    # "Disable workflow".
     environment: production
     steps:
       - uses: actions/checkout@v4
