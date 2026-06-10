@@ -1,10 +1,23 @@
 # DurableWS
 
+[![npm](https://img.shields.io/npm/v/durablews/alpha?label=npm%40alpha)](https://www.npmjs.com/package/durablews)
+[![CI](https://github.com/imnsco/DurableWS/actions/workflows/ci.yml/badge.svg)](https://github.com/imnsco/DurableWS/actions/workflows/ci.yml)
+[![bundle size](https://img.shields.io/badge/core-%E2%89%A4%203%20KB%20brotli%20(CI--enforced)-blue)](packages/durablews/package.json)
+[![license](https://img.shields.io/badge/license-MPL--2.0-green)](LICENSE)
+
 > The WebSocket client that survives the real world — automatic reconnection, bounded queueing, and typed messages. Zero dependencies, built on the standard `WebSocket`, the same in every modern runtime (browser, Node ≥22, Deno, Bun, edge).
 
 > ⚠️ **v2 is in alpha** (`npm install durablews@alpha`). See [RFC 0001](rfcs/0001-v2-architecture.md) for the architecture and a live status tracker, and **[durablews.imns.co](https://durablews.imns.co)** for the docs.
 
 The published library lives in **[`packages/durablews`](packages/durablews)** — see its [README](packages/durablews/README.md) for usage, the feature status, and requirements.
+
+## Examples
+
+Runnable, in [`examples/`](examples/):
+
+- **[resilience-playground](examples/resilience-playground/)** — sabotage the server from the UI and watch the state machine, retry counter, and queue survive you. The flagship demo.
+- **[chat](examples/chat/)** — presence + typing indicators, implemented twice (Vue composable, React hook) against one server and one zod schema.
+- **[collab-notepad](examples/collab-notepad/)** — a raw-`WebSocket` collaborative editor made durable by swapping one import (`durablews/compat`).
 
 ## Why
 

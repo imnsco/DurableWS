@@ -47,6 +47,28 @@ const provider = new WebsocketProvider(url, room, doc, {
 });
 ```
 
+:::caution[The layering rule: one reconnector per stack]
+Libraries with **stateful sync protocols** — y-websocket, graphql-ws —
+implement their *own* reconnection, because they must redo a handshake on
+every new connection. Injecting a socket that also reconnects puts two
+recovery layers in a fight (the library abandons the socket on `close` while
+the socket revives itself — zombie connections). When the consuming library
+reconnects, hand it a wrapper with ours off:
+
+```ts
+class PipeSocket extends DurableWebSocket {
+    constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols, { reconnect: false });
+    }
+}
+```
+
+Compat's sweet spot is code that treats the socket as a **plain pipe** —
+hand-rolled WebSocket code, thin SDKs without recovery logic — where the
+one-line swap delivers the full durability story. See the
+[collab-notepad example](https://github.com/imnsco/DurableWS/tree/main/examples/collab-notepad).
+:::
+
 ## Tuning the durability
 
 The third constructor argument takes the durablews config (everything except

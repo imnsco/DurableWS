@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>DurableWS — collab notepad (compat)</title>
+        <style>
+            body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+            textarea { width: 100%; height: 320px; font: 1rem/1.5 ui-monospace, monospace; padding: 0.75rem; box-sizing: border-box; }
+            .badge { padding: 0.15rem 0.6rem; border-radius: 999px; color: white; background: #b3261e; }
+            .badge[data-state="open"] { background: #1f6e3b; }
+            .badge[data-state="connecting"], .badge[data-state="reconnecting"] { background: #8a6d00; }
+            .hint { opacity: 0.65; font-size: 0.9rem; }
+        </style>
+    </head>
+    <body>
+        <h1>Collab notepad</h1>
+        <p>
+            connection: <span id="state" class="badge">idle</span>
+            <span class="hint">— a raw-WebSocket app made durable by swapping one import</span>
+        </p>
+        <textarea id="doc" spellcheck="false"></textarea>
+        <p class="hint">
+            Open this page twice. Kill the server, keep typing, restart it.
+        </p>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>

@@ -147,3 +147,118 @@ jobs:
         run: pnpm -F durablews e2e:install
       - name: Run browser e2e
         run: pnpm -F durablews e2e
+
+  size:
+    name: Size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm -F durablews build
+      - name: Enforce bundle-size budgets
+        run: pnpm -F durablews size
+
+  e2e-node:
+    name: E2E (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm -F durablews build
+      - name: Run runtime smoke (Node 22, the support floor)
+        working-directory: packages/durablews
+        run: |
+          node e2e/echo-standalone.mjs &
+          sleep 1
+          WS_PORT=8787 node e2e/runtime-smoke.mjs
+
+  e2e-deno:
+    name: E2E (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm -F durablews build
+      - name: Run runtime smoke (Deno)
+        working-directory: packages/durablews
+        run: |
+          node e2e/echo-standalone.mjs &
+          sleep 1
+          WS_PORT=8787 deno run --allow-net --allow-read --allow-env e2e/runtime-smoke.mjs
+
+  e2e-bun:
+    name: E2E (Bun)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm -F durablews build
+      - name: Run runtime smoke (Bun)
+        working-directory: packages/durablews
+        run: |
+          node e2e/echo-standalone.mjs &
+          sleep 1
+          WS_PORT=8787 bun e2e/runtime-smoke.mjs
+
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build the library
+        run: pnpm -F durablews build
+      - name: Build every example
+        run: pnpm -F "example-*" build

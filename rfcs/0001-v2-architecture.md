@@ -641,9 +641,25 @@ stops moving; release is last.
   option in support: `binaryType`, applied to the socket on every
   (re)connect — generally useful for binary protocols, not compat-specific.
   E2e: the compat class survives a server drop in real Chromium.
-- ⬜ **Slice 6 — Cross-runtime e2e + distribution assets.** Node-as-client +
-  Deno/Bun e2e (closing §6's claim); size-limit budget enforced in CI + badge;
-  runnable `examples/`.
+- ✅ **Slice 6 — Cross-runtime e2e + distribution assets.** One smoke script
+  (`e2e/runtime-smoke.mjs` — lifecycle walk, JSON echo, transparent
+  reconnect after a server drop, queue-flush-after-recovery) runs unchanged
+  under **Node 22, Deno 2, and Bun** against the built bundle + a real echo
+  server, as three required CI jobs — §6's multi-runtime claim is now
+  proven, not stated (browser was already covered by Playwright).
+  **size-limit** budgets enforced in CI (brotli, minified, all deps): core
+  **3 KB** (measures 2.36), vue/react 3.5 KB, compat 4 KB; README badges
+  (npm@alpha, CI, size). Runnable **`examples/`** (workspace members, built
+  in CI): `resilience-playground` (sabotage-the-server flagship),
+  `chat` (Vue + React against one server + one zod schema),
+  `collab-notepad` (raw-WebSocket app made durable via the compat one-line
+  swap). *Example-3 rescope, decided during implementation:* the planned
+  y-websocket/Yjs injection demo was dropped — y-websocket runs its own
+  reconnection (stateful sync protocols must), so injecting a
+  self-reconnecting socket creates two fighting recovery layers; the
+  **layering rule is now documented in the compat guide** ("one reconnector
+  per stack", with a `reconnect: false` wrapper recipe), and the example
+  demonstrates compat where it genuinely owns durability: plain-pipe code.
 - ⬜ **Slice 7 — 2.0 release.** Changesets-automated npm publish of
   `durablews@2.0.0`; launch post ("we fixed reconnection properly: full
   jitter, bounded queues, an FSM").
