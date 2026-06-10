@@ -15,16 +15,21 @@ jobs:
   release:
     name: Version or publish
     runs-on: ubuntu-latest
-    # Kill switch: set the NPM_PUBLISH_ENABLED repo variable to "true".
-    if: github.repository == 'imnsco/DurableWS' && vars.NPM_PUBLISH_ENABLED == 'true'
+    if: github.repository == 'imnsco/DurableWS'
     # Must match the npm Trusted Publisher registration (repo + workflow
     # file + environment); the OIDC token carries the environment claim.
     environment: production
     steps:
+      # Kill switch: NPM_PUBLISH_ENABLED lives in the production
+      # *environment*, so it is only visible to steps (a job-level `if` is
+      # evaluated before the environment resolves) — hence the per-step gate.
       - uses: actions/checkout@v4
+        if: vars.NPM_PUBLISH_ENABLED == 'true'
       - name: Install pnpm
+        if: vars.NPM_PUBLISH_ENABLED == 'true'
         uses: pnpm/action-setup@v4
       - name: Setup Node
+        if: vars.NPM_PUBLISH_ENABLED == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -34,13 +39,16 @@ jobs:
       # authenticates via the runner's OIDC token and attaches provenance
       # automatically.
       - name: Update npm for OIDC trusted publishing
+        if: vars.NPM_PUBLISH_ENABLED == 'true'
         run: npm install -g npm@latest
       - name: Install dependencies
+        if: vars.NPM_PUBLISH_ENABLED == 'true'
         run: pnpm install --frozen-lockfile
       # With pending changesets: opens/updates the "Version Packages" PR.
       # Without (i.e. the Version PR just merged): builds and publishes to
       # npm under the dist-tag changesets derives from pre mode ("alpha").
       - name: Version PR or publish
+        if: vars.NPM_PUBLISH_ENABLED == 'true'
         uses: changesets/action@v1
         with:
           version: pnpm release:version
