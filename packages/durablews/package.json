@@ -16,6 +16,26 @@
                 "types": "./dist/index.d.cts",
                 "default": "./dist/index.cjs"
             }
+        },
+        "./vue": {
+            "import": {
+                "types": "./dist/vue.d.ts",
+                "default": "./dist/vue.js"
+            },
+            "require": {
+                "types": "./dist/vue.d.cts",
+                "default": "./dist/vue.cjs"
+            }
+        },
+        "./react": {
+            "import": {
+                "types": "./dist/react.d.ts",
+                "default": "./dist/react.js"
+            },
+            "require": {
+                "types": "./dist/react.d.cts",
+                "default": "./dist/react.cjs"
+            }
         }
     },
     "sideEffects": false,
@@ -32,13 +52,25 @@
         "e2e:install": "playwright install --with-deps chromium",
         "typecheck": "tsc --noEmit",
         "typecheck:next": "pnpm --package=typescript@next dlx tsc --noEmit",
-        "check:publish": "publint && attw --pack .",
+        "check:publish": "publint && attw --pack . --profile node16",
         "prepublishOnly": "pnpm build"
     },
     "author": "Nate Smith (https://imns.co/)",
     "license": "MPL-2.0",
     "engines": {
         "node": ">=22"
+    },
+    "peerDependencies": {
+        "react": ">=18",
+        "vue": ">=3.2"
+    },
+    "peerDependenciesMeta": {
+        "react": {
+            "optional": true
+        },
+        "vue": {
+            "optional": true
+        }
     },
     "repository": {
         "type": "git",
@@ -73,14 +105,20 @@
     "devDependencies": {
         "@arethetypeswrong/cli": "^0.18.3",
         "@playwright/test": "^1.60.0",
+        "@testing-library/react": "^16.3.2",
         "@types/node": "^22.19.20",
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.3",
         "@types/ws": "^8.18.1",
         "jsdom": "^24.0.0",
         "publint": "^0.3.21",
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7",
         "tsup": "^8.5.1",
         "typescript": "^5.3.3",
         "vitest": "^1.2.2",
         "vitest-websocket-mock": "^0.3.0",
+        "vue": "^3.5.35",
         "ws": "^8.21.0"
     }
 }

@@ -27,6 +27,13 @@ export default defineConfig({
                         { label: "Getting started", slug: "getting-started" },
                     ],
                 },
+                {
+                    label: "Frameworks",
+                    items: [
+                        { label: "Vue", slug: "frameworks/vue" },
+                        { label: "React", slug: "frameworks/react" },
+                    ],
+                },
             ],
         }),
     ],

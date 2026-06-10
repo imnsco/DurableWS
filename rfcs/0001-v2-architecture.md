@@ -570,15 +570,21 @@ stops moving; release is last.
   (`SchemaValidationError` with the spec's issues), never as `message`; async
   `validate` supported. Compile-time tests via `expectTypeOf` + runtime
   validation suite.
-- 🚧 **Slice 2 — Reactive seam + Vue & React bindings.** *(Lands as two PRs:
-  2a the core seam — done; 2b the bindings.)* Core
+- ✅ **Slice 2 — Reactive seam + Vue & React bindings.** *(Landed as two PRs:
+  2a the core seam; 2b the bindings.)* Core
   `subscribe(listener)` over the full snapshot (per the decision above) —
   including the `getState()` **snapshot caching** that referential-equality
   consumers like `useSyncExternalStore` require — then
   `durablews/vue` (`useWebSocket` composable: reactive state, auto-cleanup on
   scope dispose) and `durablews/react` (`useWebSocket` via
-  `useSyncExternalStore`) as subpath exports with optional peers. Each gets a
-  docs page written in its community's idiom. First `2.0.0-alpha` publish with
+  `useSyncExternalStore`) as subpath exports with optional peers (`vue >=3.2`,
+  `react >=18`). Shared semantics: pass a *config* and the binding owns the
+  client (auto-connect, SSR-safe, closed on dispose/unmount); pass an
+  *existing client* and the binding only observes it — the app-singleton
+  sharing pattern. Both expose the snapshot fields plus a bounded
+  `lastMessage` (latest message only — core still never accumulates history)
+  and infer types from `config.schema`. Each has a docs page in its
+  community's idiom (composables / hooks). First `2.0.0-alpha` publish with
   bindings included.
 - ⬜ **Slice 3 — Outbound middleware.** Settles the §9 shape question
   (mirrored onion vs. `onSend` hook) with auth/token-refresh as the driving
