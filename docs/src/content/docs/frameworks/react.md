@@ -9,7 +9,7 @@ No extra package — React is an *optional* peer dependency, so installing
 import it. React 18+ is required.
 
 ```bash
-npm install durablews@alpha
+npm install durablews
 ```
 
 ## Quick start

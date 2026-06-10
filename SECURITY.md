@@ -2,14 +2,13 @@
 
 ## Supported versions
 
-DurableWS v2 is in active development (`2.0.0-alpha`). Until v2 is released,
-security fixes are applied to `main` only. The legacy `1.x` line is not
-maintained.
+Security fixes are applied to the current `2.x` line (released from `main`).
+The legacy `1.x` line is not maintained.
 
-| Version      | Supported           |
-| ------------ | ------------------- |
-| `2.x` (main) | ✅ (in development) |
-| `1.x`        | ❌                  |
+| Version | Supported |
+| ------- | --------- |
+| `2.x`   | ✅        |
+| `1.x`   | ❌        |
 
 ## Reporting a vulnerability
 

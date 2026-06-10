@@ -9,7 +9,7 @@ No extra package — Vue is an *optional* peer dependency, so installing
 import it.
 
 ```bash
-npm install durablews@alpha
+npm install durablews
 ```
 
 ## Quick start

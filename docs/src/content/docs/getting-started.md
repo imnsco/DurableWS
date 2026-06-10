@@ -3,13 +3,6 @@ title: Getting started
 description: Install DurableWS and open your first connection.
 ---
 
-:::caution[Alpha]
-v2 (`2.0.0-alpha`) is in active development. The current npm release (`1.x`)
-predates this redesign, and the durability features below are still being
-built — track progress in the
-[architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md).
-:::
-
 ## Requirements
 
 DurableWS targets the standard global `WebSocket` with **zero runtime
@@ -23,7 +16,7 @@ dependencies**:
 ## Installation
 
 ```bash
-npm install durablews@alpha
+npm install durablews
 ```
 
 ## Quick start

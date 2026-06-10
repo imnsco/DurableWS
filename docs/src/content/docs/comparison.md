@@ -42,7 +42,7 @@ including the places the alternatives are ahead today.
 | Drop-in `WebSocket` class | ✅ [`durablews/compat`](/guides/compat/) | ✅ | ✅ |
 | Dynamic URL provider | ❌ (on the radar) | ✅ sync/async | ❌ |
 | Zero dependencies | ✅ | ✅ | ✅ |
-| Actively maintained | ✅ (alpha) | ✅ | last release 2020 |
+| Actively maintained | ✅ | ✅ | last release 2020 |
 
 ## What the differences mean in practice
 
@@ -75,6 +75,6 @@ Honesty over marketing:
   DurableWS handles token freshness via outbound middleware, but per-connect
   URL re-resolution isn't built yet.
 - **Years in production.** The reconnecting-websocket lineage has carried an
-  enormous amount of traffic. DurableWS 2.0 is an alpha with a thorough test
+  enormous amount of traffic. DurableWS 2.0 is new, with a thorough test
   pyramid (unit, integration, real-browser e2e) — but production-miles are
   earned, not claimed.

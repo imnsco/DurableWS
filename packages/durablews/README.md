@@ -4,11 +4,10 @@
 > bounded queueing, and typed messages. Zero dependencies, every modern
 > runtime, durable by default.
 
-> ⚠️ **v2 is in alpha** (`npm install durablews@alpha`). The features below
-> are built and tested (unit, integration, real-browser e2e); the API may
-> still shift before 2.0. The
+> The features below are built and tested (unit, integration, real-browser
+> e2e). The
 > [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
-> tracks design and status. The `1.x` release predates this rewrite — don't
+> tracks design and status. The `1.x` line predates the v2 rewrite — don't
 > use it.
 
 ## What you get
@@ -43,7 +42,7 @@
 ## Installation
 
 ```bash
-npm install durablews@alpha
+npm install durablews
 ```
 
 ## Quick start

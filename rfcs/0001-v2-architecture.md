@@ -535,7 +535,7 @@ separate test/e2e slice.
   ("mute") → real Chromium detects the dead link via heartbeat and recovers on
   a fresh connection.
 
-### M4 — Adoption: docs, bindings, typed DX & 2.0 release 🚧
+### M4 — Adoption: docs, bindings, typed DX & 2.0 release ✅
 
 Renamed from "docs content & add-ons" — M4 is the **adoption milestone**. The
 premise (§2.1): libraries don't become popular at 1.0; they become popular when
@@ -660,17 +660,18 @@ stops moving; release is last.
   **layering rule is now documented in the compat guide** ("one reconnector
   per stack", with a `reconnect: false` wrapper recipe), and the example
   demonstrates compat where it genuinely owns durability: plain-pipe code.
-- 🚧 **Slice 7 — 2.0 release.** Prepared, one merge from done: pre mode
-  exited, the 2.0.0 graduation changeset written (version math verified:
-  `2.0.0`), private workspace packages excluded from changesets versioning,
-  and the launch post drafted (moved to the maintainer's blog repo,
-  `imns-co-astro`, as a `draft: true` post — publish it alongside the
-  release).
-  **Merging the auto-opened Version Packages PR publishes
-  `durablews@2.0.0` to `latest`** via OIDC trusted publishing — that merge
-  is the deliberate human step, left to the maintainer (alpha.1 shipped
-  the same night; whether to let it bake first is a judgment call the
-  maintainer should make awake).
+- ✅ **Slice 7 — 2.0 release.** **`durablews@2.0.0` is live on npm `latest`**
+  (published 2026-06-10 via OIDC trusted publishing, with provenance
+  attestations) — the maintainer merged the Version Packages PR (#40) as the
+  deliberate human step. Release-pipeline hardening landed along the way:
+  the Version PR's required checks never started because pushes made with
+  the built-in `GITHUB_TOKEN` don't trigger workflows (GitHub's recursion
+  guard); fixed by giving the `RELEASE_TOKEN` fine-grained PAT to **both**
+  the changesets step's env (#43) *and* `actions/checkout`'s `token` (#44 —
+  the action pushes through git, which uses checkout's persisted
+  credentials). Version PRs now arrive with live checks, unassisted.
+  Remaining launch chore (outside the repo): flip the launch post to
+  `draft: false` in `imns-co-astro`.
 
 ## 9. Open questions
 
