@@ -25,6 +25,19 @@ export default defineConfig({
                     label: "Start here",
                     items: [
                         { label: "Getting started", slug: "getting-started" },
+                        { label: "Why DurableWS?", slug: "comparison" },
+                    ],
+                },
+                {
+                    label: "Guides",
+                    items: [
+                        { label: "Durability tuning", slug: "guides/durability" },
+                        { label: "Middleware", slug: "guides/middleware" },
+                        { label: "Codecs", slug: "guides/codecs" },
+                        {
+                            label: "Migrating from v1",
+                            slug: "guides/migrating-from-v1",
+                        },
                     ],
                 },
                 {
@@ -33,6 +46,10 @@ export default defineConfig({
                         { label: "Vue", slug: "frameworks/vue" },
                         { label: "React", slug: "frameworks/react" },
                     ],
+                },
+                {
+                    label: "Reference",
+                    items: [{ label: "API reference", slug: "reference/api" }],
                 },
             ],
         }),

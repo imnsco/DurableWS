@@ -60,10 +60,14 @@ The real incumbents in our niche — durable clients over the standard
 - **`partysocket`** — the maintained fork (PartyKit/Cloudflare), actively
   growing. This is the rival evaluators will compare us against.
 
-Differentiation vs. both: typed events, the codec seam, middleware, **message
-queueing** (partysocket does not queue), a promise-based `connect()`, and an
-observable FSM. This story must be explicit — a comparison page is among the
-highest-leverage docs we can ship (M4).
+Differentiation vs. both: typed events, the codec seam, middleware, **bounded
+and observable queueing**, a promise-based `connect()`, and an observable FSM.
+*(Correction, M4 slice 4: an earlier revision claimed "partysocket does not
+queue" — false. Both incumbents buffer while disconnected, unbounded by
+default with a silent `maxEnqueuedMessages` cap. The honest differentiator is
+the queue's edges: bounded by default, drop-oldest, and every drop observable
+via `drop` events — never a silent buffer.)* This story must be explicit — a
+comparison page is among the highest-leverage docs we can ship (M4).
 
 Both incumbents win adoption via a **drop-in `WebSocket`-compatible class**
 (swap `new WebSocket(url)` → `new PartySocket(...)`). Our nicer API is a
@@ -612,10 +616,15 @@ stops moving; release is last.
   as a `drop` otherwise — never silently lost. New types: `OutboundContext`,
   `OutboundMiddleware`, `DirectionalMiddleware`. Corrects the §4.1 status
   note; e2e proves async stamping + ordering against a real socket.
-- ⬜ **Slice 4 — Docs content.** API reference, guides (durability tuning,
-  codecs, middleware, framework pages), migration-from-v1 note, the
-  **comparison page** (vs `reconnecting-websocket`, `partysocket`, socket.io
-  category expectations), and **`llms.txt`** for AI-assistant discovery.
+- ✅ **Slice 4 — Docs content.** API reference (hand-written single page —
+  typedoc deferred until the surface outgrows it), guides (durability
+  tuning, middleware, codecs; framework pages landed in slice 2b),
+  migration-from-v1, the **comparison page** ("Why DurableWS?" — claims
+  verified against the incumbents' current READMEs, with an explicit
+  "what they do better today" section: drop-in compat, dynamic URL
+  providers, production miles), and **`llms.txt`** (hand-written, in
+  `docs/public/`) for AI-assistant discovery. Also corrects §2.1's false
+  "partysocket does not queue" claim (see the correction note there).
 - ⬜ **Slice 5 — `durablews/compat` (decision: build, with scoped fidelity).**
   A drop-in `WebSocket`-shaped class over core for two documented audiences:
   app-code one-line migration (the `reconnecting-websocket`/`partysocket`
