@@ -558,12 +558,18 @@ deliberate: typed maps stabilize the core surface first so bindings and the
 API reference are typed from day one; docs content lands after the surface
 stops moving; release is last.
 
-- ⬜ **Slice 1 — Typed message maps + Standard Schema validation.** The DX
-  showcase: `defineClient<MyMessages>(...)` giving `on`/`send` real
-  per-message typing (not the `on<ChatMessage>` cast of the early sketch);
-  optional schema validation at the codec seam via **Standard Schema**
-  (zod/valibot/arktype all conform). Invalid inbound → `error` event, not a
-  crash.
+- ✅ **Slice 1 — Typed messages + Standard Schema validation.** Generics
+  threaded through the surface — `WebSocketClient<TIn, TOut>`:
+  `on("message")` receives `TIn`, `send()` accepts `TOut`, `drop` carries
+  `DropEvent<TOut>`, middleware context is `MessageContext<TIn>` (defaults
+  `unknown`, fully back-compatible). `config.schema` takes any **Standard
+  Schema** (interface vendored types-only per the spec — still zero deps);
+  `defineClient({ url, schema })` **infers `TIn` from the schema**, no
+  generics needed. Validation runs decode → schema → middleware, so middleware
+  only sees trusted data; invalid inbound surfaces as an `error` event
+  (`SchemaValidationError` with the spec's issues), never as `message`; async
+  `validate` supported. Compile-time tests via `expectTypeOf` + runtime
+  validation suite.
 - ⬜ **Slice 2 — Reactive seam + Vue & React bindings.** Core
   `subscribe(listener)` over the full snapshot (per the decision above), then
   `durablews/vue` (`useWebSocket` composable: reactive state, auto-cleanup on

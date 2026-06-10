@@ -1,3 +1,5 @@
+import type { StandardSchemaV1 } from "@/schema";
+
 /**
  * Translates between application values and WebSocket wire frames.
  *
@@ -107,6 +109,15 @@ export interface WebSocketClientConfig {
      * {@link HeartbeatOptions}.
      */
     readonly heartbeat?: HeartbeatOptions;
+    /**
+     * A [Standard Schema](https://standardschema.dev) (zod, valibot, arktype,
+     * …) validating every **inbound** message after `codec.decode` and before
+     * middleware. Valid messages flow on with the schema's output value;
+     * invalid ones surface as an `error` event (`SchemaValidationError`) and
+     * are never emitted as `message`. When passed to `defineClient`, the
+     * message type is **inferred from the schema** — no generics needed.
+     */
+    readonly schema?: StandardSchemaV1;
 }
 
 /**
@@ -168,9 +179,9 @@ export interface ClientState {
  * Payload emitted on every `drop` event — a queued outbound message that will
  * never be sent.
  */
-export interface DropEvent {
+export interface DropEvent<TOut = unknown> {
     /** The original (un-encoded) value passed to `send()`. */
-    readonly data: unknown;
+    readonly data: TOut;
     /**
      * Why it was dropped: `overflow` — the queue was full and this was the
      * oldest entry; `close` — the connection ended (user `close()` or terminal
@@ -192,14 +203,15 @@ export interface ReconnectingEvent {
 /**
  * The context handed to each message middleware.
  */
-export interface MessageContext {
+export interface MessageContext<TIn = unknown> {
     /**
-     * The decoded inbound message. Middleware may reassign this to transform
-     * what later middleware — and the `message` event — receive.
+     * The decoded (and, if a schema is configured, validated) inbound message.
+     * Middleware may reassign this to transform what later middleware — and
+     * the `message` event — receive.
      */
-    data: unknown;
+    data: TIn;
     /** The client, e.g. for sending a reply from within the pipeline. */
-    readonly client: WebSocketClient;
+    readonly client: WebSocketClient<TIn>;
 }
 
 /**
@@ -210,8 +222,8 @@ export interface MessageContext {
  * calling `next()` to short-circuit (e.g. an auto-reply that shouldn't bubble).
  * May be async.
  */
-export type Middleware = (
-    ctx: MessageContext,
+export type Middleware<TIn = unknown> = (
+    ctx: MessageContext<TIn>,
     next: () => void | Promise<void>
 ) => void | Promise<void>;
 
@@ -229,11 +241,11 @@ export interface StateChange {
  * The events a client emits, mapped to their payload types. Used to give
  * `on()` precise, per-event payload typing.
  */
-export interface ClientEventMap {
+export interface ClientEventMap<TIn = unknown, TOut = unknown> {
     /** The socket opened. */
     open: undefined;
-    /** A message was received and decoded. */
-    message: unknown;
+    /** A message was received, decoded, and (if configured) validated. */
+    message: TIn;
     /** The socket closed (clean or otherwise). */
     close: CloseEvent;
     /**
@@ -246,13 +258,17 @@ export interface ClientEventMap {
     /** A reconnect attempt was scheduled (fires once per retry). */
     reconnecting: ReconnectingEvent;
     /** A queued outbound message was dropped and will never be sent. */
-    drop: DropEvent;
+    drop: DropEvent<TOut>;
 }
 
 /**
  * A resilient, zero-dependency WebSocket client.
+ *
+ * @typeParam TIn - The type of inbound messages (what `on("message")`
+ * handlers receive). Inferred from `config.schema` when one is given.
+ * @typeParam TOut - The type accepted by `send()`.
  */
-export interface WebSocketClient {
+export interface WebSocketClient<TIn = unknown, TOut = unknown> {
     /** The current connection state. */
     readonly state: ConnectionState;
 
@@ -292,7 +308,7 @@ export interface WebSocketClient {
      * Throws when the client is `idle`, `closing`, or `closed` — states where
      * no open is coming — or whenever the socket isn't open if `queue: false`.
      */
-    send(data: unknown): void;
+    send(data: TOut): void;
 
     /**
      * Closes the connection.
@@ -305,16 +321,16 @@ export interface WebSocketClient {
      * Subscribes to a client event.
      * @returns an unsubscribe function.
      */
-    on<K extends keyof ClientEventMap>(
+    on<K extends keyof ClientEventMap<TIn, TOut>>(
         event: K,
-        handler: (payload: ClientEventMap[K]) => void
+        handler: (payload: ClientEventMap<TIn, TOut>[K]) => void
     ): () => void;
 
     /**
      * Registers message middleware, run in order for each inbound message.
      * @returns the client, for chaining.
      */
-    use(middleware: Middleware): WebSocketClient;
+    use(middleware: Middleware<TIn>): WebSocketClient<TIn, TOut>;
 
     /**
      * Returns a read-only snapshot of the client's observable state.
