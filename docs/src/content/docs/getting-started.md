@@ -109,6 +109,10 @@ const client = defineClient<Incoming, Outgoing>({ url });
 - **Typed + validated messages** via any Standard Schema (`schema` option),
   or plain generics (`defineClient<In, Out>`)
 - A message middleware pipeline (`use()`), with an opt-in `pingpong` keepalive
+- **Framework bindings in the box** — a [Vue composable](/frameworks/vue/) and
+  a [React hook](/frameworks/react/) (`durablews/vue`, `durablews/react`) with
+  reactive connection state and automatic cleanup; the frameworks are optional
+  peers, so core installs never warn
 
 :::note[`connect()` and unlimited retries]
 `connect()` resolves on the first successful open — including when that open is
@@ -120,7 +124,7 @@ it: `Promise.race([client.connect(), timeout(10_000)])`.
 
 ## On the roadmap
 
-Framework bindings (Vue and React, co-equal), a drop-in `WebSocket`-compatible
+Outbound middleware (auth/token refresh), a drop-in `WebSocket`-compatible
 compat class, and channels — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.
