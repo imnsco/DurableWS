@@ -228,6 +228,50 @@ export type Middleware<TIn = unknown> = (
 ) => void | Promise<void>;
 
 /**
+ * The context handed to each outbound middleware.
+ */
+export interface OutboundContext<TOut = unknown> {
+    /**
+     * The outbound message, exactly as passed to `send()`. Middleware may
+     * reassign this to transform what later middleware — and ultimately
+     * `codec.encode` — receive.
+     */
+    data: TOut;
+    /** The client, e.g. to read `getState()` from within the pipeline. */
+    readonly client: WebSocketClient<unknown, TOut>;
+}
+
+/**
+ * Outbound middleware, run in registration order for each outgoing message at
+ * **transmission time** — after dequeue, before `codec.encode` — so a message
+ * queued across a reconnect sees middleware (e.g. a token refresh) that is
+ * fresh when it actually goes out.
+ *
+ * May be async: the outbound path is serialized, so messages reach the socket
+ * in `send()` order even while an earlier message's middleware awaits (a
+ * delaying middleware therefore delays everything behind it — head-of-line,
+ * by design). Return without calling `next()` to deliberately not send the
+ * message (no `drop` event — `drop` means durability loss, not policy).
+ * A throw/rejection surfaces as an `error` event and skips only that message.
+ *
+ * Heartbeat pings bypass outbound middleware entirely.
+ */
+export type OutboundMiddleware<TOut = unknown> = (
+    ctx: OutboundContext<TOut>,
+    next: () => void | Promise<void>
+) => void | Promise<void>;
+
+/**
+ * The object form accepted by `use()`: register middleware per direction, so
+ * one logical middleware (auth, logging, metrics) has a single registration
+ * site. Either side may be omitted.
+ */
+export interface DirectionalMiddleware<TIn = unknown, TOut = unknown> {
+    readonly inbound?: Middleware<TIn>;
+    readonly outbound?: OutboundMiddleware<TOut>;
+}
+
+/**
  * Payload emitted on every `statechange`.
  */
 export interface StateChange {
@@ -327,10 +371,19 @@ export interface WebSocketClient<TIn = unknown, TOut = unknown> {
     ): () => void;
 
     /**
-     * Registers message middleware, run in order for each inbound message.
+     * Registers message middleware.
+     *
+     * A bare function registers **inbound** middleware (run in order for each
+     * inbound message — unchanged). The object form registers per direction:
+     * `use({ outbound })`, `use({ inbound, outbound })`. See
+     * {@link OutboundMiddleware} for the outbound contract (transmission-time
+     * execution, ordered async, silent short-circuit, per-message errors).
+     *
      * @returns the client, for chaining.
      */
-    use(middleware: Middleware<TIn>): WebSocketClient<TIn, TOut>;
+    use(
+        middleware: Middleware<TIn> | DirectionalMiddleware<TIn, TOut>
+    ): WebSocketClient<TIn, TOut>;
 
     /**
      * Returns a read-only snapshot of the client's observable state.

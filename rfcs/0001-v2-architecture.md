@@ -120,11 +120,10 @@ reconnection properly: full jitter, bounded queues, an FSM").
    connection lifecycle  ──►  typed Finite State Machine (the only core state)
 ```
 
-> **Status note (post-M2):** the **inbound** pipeline shipped in M2. The
-> **outbound** pipeline shown above is *planned, not built* — and it matters
-> more than it looks: the #1 real middleware use case is auth (attaching/
-> refreshing tokens on send and connect), which is outbound. Scheduled as M4
-> scope; decision details in §9.
+> **Status note:** both directions are built — the **inbound** pipeline
+> shipped in M2, the **outbound** pipeline in M4 slice 3 (object form of
+> `use()`; semantics in §9). Heartbeat pings deliberately bypass the outbound
+> pipeline.
 
 Four distinct seams, deliberately kept separate:
 
@@ -600,11 +599,19 @@ stops moving; release is last.
   and infer types from `config.schema`. Each has a docs page in its
   community's idiom (composables / hooks). First `2.0.0-alpha` publish with
   bindings included.
-- ⬜ **Slice 3 — Outbound middleware.** Implements the settled §9 decision
-  (mirrored onion via the object form of `use()` — see §9 for the full
-  semantics: transmission-time execution, ordered async, short-circuit,
-  per-message error isolation, heartbeat bypass) with auth/token-refresh as
-  the driving use case; corrects the §4.1 diagram status note.
+- ✅ **Slice 3 — Outbound middleware.** Implements the settled §9 decision:
+  mirrored onion via the object form of `use()`
+  (`use({ inbound?, outbound? })`; a bare function stays inbound). All five
+  settled semantics shipped: transmission-time execution (after dequeue,
+  before encode), ordered async via a serialized outbound chain with a fully
+  synchronous fast path when nothing is in flight, silent short-circuit,
+  per-message error isolation, heartbeat bypass. One semantic the design
+  left implicit, now defined and tested: a message whose connection drops
+  *mid-pipeline* is re-queued ahead of newer sends when a retry is underway
+  (middleware re-runs at next transmission — tokens stay fresh) and surfaces
+  as a `drop` otherwise — never silently lost. New types: `OutboundContext`,
+  `OutboundMiddleware`, `DirectionalMiddleware`. Corrects the §4.1 status
+  note; e2e proves async stamping + ordering against a real socket.
 - ⬜ **Slice 4 — Docs content.** API reference, guides (durability tuning,
   codecs, middleware, framework pages), migration-from-v1 note, the
   **comparison page** (vs `reconnecting-websocket`, `partysocket`, socket.io

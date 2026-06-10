@@ -930,3 +930,235 @@ describe("subscribe / snapshot", () => {
         c.close();
     });
 });
+
+describe("outbound middleware", () => {
+    const OURL = "ws://localhost:1243";
+    let server: WS;
+
+    afterEach(() => {
+        WS.clean();
+    });
+
+    async function open(c: WebSocketClient) {
+        const opened = c.connect();
+        await server.connected;
+        await opened;
+    }
+
+    /** A promise with its resolver exposed, for holding middleware mid-flight. */
+    function deferred() {
+        let resolve!: () => void;
+        const promise = new Promise<void>((res) => {
+            resolve = res;
+        });
+        return { promise, resolve };
+    }
+
+    it("the object form registers inbound middleware too", async () => {
+        server = new WS(OURL);
+        const c = client({ url: OURL, reconnect: false });
+        c.use({
+            inbound: (ctx, next) => {
+                ctx.data = `in:${String(ctx.data)}`;
+                return next();
+            }
+        });
+        const received: unknown[] = [];
+        c.on("message", (msg) => received.push(msg));
+        await open(c);
+
+        server.send(JSON.stringify("hello"));
+        await vi.waitFor(() => expect(received).toEqual(["in:hello"]));
+        c.close();
+    });
+
+    it("transforms outgoing messages before encode", async () => {
+        server = new WS(OURL);
+        const c = client({ url: OURL, reconnect: false });
+        c.use({
+            outbound: (ctx, next) => {
+                ctx.data = { body: ctx.data, token: "t-1" };
+                return next();
+            }
+        });
+        await open(c);
+
+        c.send("hi");
+        await expect(server).toReceiveMessage(
+            JSON.stringify({ body: "hi", token: "t-1" })
+        );
+        c.close();
+    });
+
+    it("preserves send() order across async middleware", async () => {
+        server = new WS(OURL);
+        const c = client({ url: OURL, reconnect: false });
+        const gate = deferred();
+        let held = false;
+        c.use({
+            outbound: async (_ctx, next) => {
+                if (!held) {
+                    held = true;
+                    await gate.promise; // first message stalls in-flight
+                }
+                await next();
+            }
+        });
+        await open(c);
+
+        c.send("first");
+        c.send("second");
+        gate.resolve();
+
+        await expect(server).toReceiveMessage("first");
+        await expect(server).toReceiveMessage("second");
+        c.close();
+    });
+
+    it("short-circuit means deliberately not sent: no drop event", async () => {
+        server = new WS(OURL);
+        const c = client({ url: OURL, reconnect: false });
+        const onDrop = vi.fn();
+        c.on("drop", onDrop);
+        c.use({
+            outbound: (ctx, next) => {
+                if (ctx.data === "secret") {
+                    return; // policy: filtered, not lost
+                }
+                return next();
+            }
+        });
+        await open(c);
+
+        c.send("secret");
+        c.send("public");
+        await expect(server).toReceiveMessage("public");
+        expect(onDrop).not.toHaveBeenCalled();
+        c.close();
+    });
+
+    it("a throwing middleware fails only that message", async () => {
+        server = new WS(OURL);
+        const c = client({ url: OURL, reconnect: false });
+        const errors: unknown[] = [];
+        c.on("error", (e) => errors.push(e));
+        c.use({
+            outbound: (ctx, next) => {
+                if (ctx.data === "boom") {
+                    throw new Error("outbound failed");
+                }
+                return next();
+            }
+        });
+        await open(c);
+
+        c.send("boom");
+        c.send("fine");
+        await expect(server).toReceiveMessage("fine");
+        expect(errors).toHaveLength(1);
+        expect((errors[0] as Error).message).toMatch(/outbound failed/);
+        c.close();
+    });
+
+    it("runs at transmission time, not send() time (queued messages)", async () => {
+        server = new WS(OURL);
+        const c = client({ url: OURL, reconnect: false });
+        const ran = vi.fn();
+        c.use({
+            outbound: (ctx, next) => {
+                ran();
+                ctx.data = `stamped:${String(ctx.data)}`;
+                return next();
+            }
+        });
+
+        const opened = c.connect();
+        c.send("early"); // still connecting → queued
+        expect(ran).not.toHaveBeenCalled(); // not at send() time
+
+        await server.connected;
+        await opened;
+        await expect(server).toReceiveMessage("stamped:early");
+        expect(ran).toHaveBeenCalledTimes(1);
+        c.close();
+    });
+
+    it("heartbeat pings bypass outbound middleware", async () => {
+        vi.useFakeTimers();
+        try {
+            server = new WS(OURL);
+            const c = client({
+                url: OURL,
+                reconnect: false,
+                heartbeat: { interval: 50 }
+            });
+            const ran = vi.fn();
+            c.use({
+                outbound: (_ctx, next) => {
+                    ran();
+                    return next();
+                }
+            });
+
+            const opened = c.connect();
+            await vi.waitFor(async () => {
+                await server.connected;
+            });
+            await opened;
+
+            await vi.advanceTimersByTimeAsync(60); // one ping goes out
+            expect(ran).not.toHaveBeenCalled();
+            c.close();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("re-queues a message whose connection dropped mid-pipeline", async () => {
+        server = new WS(OURL);
+        const c = client({
+            url: OURL,
+            reconnect: { baseDelay: 30_000, jitter: false }
+        });
+        const gate = deferred();
+        c.use({
+            outbound: async (_ctx, next) => {
+                await gate.promise;
+                await next();
+            }
+        });
+        await open(c);
+
+        c.send("in-flight");
+        server.close(); // unexpected close → reconnecting (long backoff)
+        await vi.waitFor(() => expect(c.state).toBe("reconnecting"));
+
+        gate.resolve(); // pipeline finishes with no open socket
+        await vi.waitFor(() => {
+            expect(c.getState().queueLength).toBe(1);
+        });
+        c.close();
+    });
+
+    it("drops (never silently loses) a mid-pipeline message on user close()", async () => {
+        server = new WS(OURL);
+        const c = client({ url: OURL, reconnect: false });
+        const drops: unknown[] = [];
+        c.on("drop", (d) => drops.push(d));
+        const gate = deferred();
+        c.use({
+            outbound: async (_ctx, next) => {
+                await gate.promise;
+                await next();
+            }
+        });
+        await open(c);
+
+        c.send("in-flight");
+        c.close();
+        gate.resolve();
+        await vi.waitFor(() => {
+            expect(drops).toEqual([{ data: "in-flight", reason: "close" }]);
+        });
+    });
+});

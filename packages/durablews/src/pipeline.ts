@@ -1,21 +1,30 @@
-import type { MessageContext, Middleware } from "@/types";
+/**
+ * The functional shape shared by inbound and outbound middleware: receive a
+ * context and a `next`, optionally async. The context type is the only thing
+ * that differs per direction.
+ */
+type PipelineMiddleware<TContext> = (
+    ctx: TContext,
+    next: () => void | Promise<void>
+) => void | Promise<void>;
 
 /**
- * Runs an inbound message through the middleware chain (onion model).
+ * Runs a message through a middleware chain (onion model).
  *
  * Each middleware receives the shared context and a `next` it may call to pass
  * control onward. When the chain runs to completion, `terminal` is invoked —
- * this is where the client emits the `message` event. A middleware that returns
- * without calling `next()` short-circuits the chain (and `terminal`).
+ * for inbound messages that is where the client emits `message`; for outbound,
+ * where it encodes and writes to the socket. A middleware that returns without
+ * calling `next()` short-circuits the chain (and `terminal`).
  *
  * Mirrors the guard from the old store pipeline: calling `next()` more than once
  * in a single middleware is a bug and throws.
  *
  * @returns `void`, or a `Promise` if any middleware in the chain is async.
  */
-export function runPipeline(
-    middlewares: readonly Middleware[],
-    ctx: MessageContext,
+export function runPipeline<TContext>(
+    middlewares: readonly PipelineMiddleware<TContext>[],
+    ctx: TContext,
     terminal: () => void
 ): void | Promise<void> {
     let invoked = -1;
