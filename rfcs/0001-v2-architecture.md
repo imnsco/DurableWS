@@ -663,8 +663,9 @@ stops moving; release is last.
 - 🚧 **Slice 7 — 2.0 release.** Prepared, one merge from done: pre mode
   exited, the 2.0.0 graduation changeset written (version math verified:
   `2.0.0`), private workspace packages excluded from changesets versioning,
-  and the launch post drafted at `posts/durablews-2.0-launch.md`
-  (**pending maintainer review** — publish it alongside the release).
+  and the launch post drafted (moved to the maintainer's blog repo,
+  `imns-co-astro`, as a `draft: true` post — publish it alongside the
+  release).
   **Merging the auto-opened Version Packages PR publishes
   `durablews@2.0.0` to `latest`** via OIDC trusted publishing — that merge
   is the deliberate human step, left to the maintainer (alpha.1 shipped
