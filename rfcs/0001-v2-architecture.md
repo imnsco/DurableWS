@@ -254,7 +254,9 @@ call) is removed. Apps that want a singleton export their own instance.
 
 - **pnpm monorepo**, but **one published package** (`durablews`). Optional
   add-ons ship as **subpath exports** (`durablews/socketio`, `durablews/msgpack`,
-  `durablews/auth`) and are tree-shakeable. Install stays `npm i durablews`. A
+  `durablews/auth`) and are tree-shakeable — **including framework bindings**
+  (`durablews/vue`, `durablews/react`), whose framework peers are *optional*
+  peerDependencies (see M4 decisions, §8). Install stays `npm i durablews`. A
   separate package is introduced later only if something truly should not be
   bundled.
 - There is **one core client**, not a base-vs-full split.
@@ -516,36 +518,76 @@ separate test/e2e slice.
   ("mute") → real Chromium detects the dead link via heartbeat and recovers on
   a fresh connection.
 
-### M4 — Adoption: docs, bindings, typed DX & 2.0 release ⬜
+### M4 — Adoption: docs, bindings, typed DX & 2.0 release 🚧
 
 Renamed from "docs content & add-ons" — M4 is the **adoption milestone**. The
 premise (§2.1): libraries don't become popular at 1.0; they become popular when
-a React dev copies a hook from a docs page. Slicing to be finalized when M3
-completes; scope is tracked here so it doesn't get lost:
+a developer copies a working hook or composable from a docs page.
 
-- ⬜ **Framework bindings — the headline.** `durablews/react`
-  (`useSyncExternalStore` over `statechange`/`getState()`); Vue/Svelte
-  fast-follows. Promoted from "trivial, someday" to explicit scope.
-- ⬜ **Typed messages as the DX showcase.** A real typed event map
-  (`defineClient<MyMessages>(...)`), not the `on<ChatMessage>(...)` cast the
-  earlier API sketch showed. Optional schema validation at the codec seam via
-  **Standard Schema** (zod/valibot/arktype all conform) — genuinely
-  differentiating in this niche.
-- ⬜ **Outbound middleware** (per §4.1 status note) — the auth use case:
-  attach/refresh tokens on send and connect.
-- ⬜ **`durablews/compat` decision** — drop-in `WebSocket`-shaped class to
-  capture the `reconnecting-websocket`/`partysocket` migration audience (§2.1;
-  open question in §9). Decide, then build or explicitly reject.
-- ⬜ **Cross-runtime e2e completion** (per §6): Node-as-client + Deno/Bun
-  runners, closing the multi-runtime claim.
-- ⬜ **Docs content.** API reference, guides, migration content — including a
+**Decisions settled for M4:**
+
+- **Vue is a first-class binding, co-equal with React** (not a fast-follow).
+  Rationale beyond preference: React WebSocket hooks are a crowded space
+  (`react-use-websocket`, partysocket's hook); polished Vue support is
+  genuinely underserved — a niche we can own, and the maintainer dogfoods Vue.
+  Docs use each community's vocabulary: *composables* (Vue), *hooks* (React).
+  Svelte remains a fast-follow.
+- **Bindings ship inside the one package as subpath exports**
+  (`durablews/vue`, `durablews/react`) — this is §5's existing
+  one-package/subpath rule applied, re-affirmed for bindings specifically:
+  one install, one npm page concentrating downloads (social proof), versioning
+  that can never drift from core, IDE-discoverable exports — Hono-style, vs.
+  the TanStack/XState separate-package model whose independent-versioning win
+  costs fragmentation we have no team to absorb. Mechanics: `vue`/`react` as
+  **optional peerDependencies** (`peerDependenciesMeta.optional`) so core
+  installs never warn and framework code loads only via its subpath. If a
+  binding ever needs independent majors, extraction later is easy; merging
+  back is hard.
+- **Reactive-state seam:** `on("statechange")` fires only on FSM transitions,
+  but `queueLength` changes on `send()` with no transition — insufficient for
+  reactive bindings. Slice 2 adds a small core `subscribe(listener)` seam
+  firing on **any** observable-snapshot change (state, lastError, retryAttempt,
+  queueLength); it is exactly React's `useSyncExternalStore` shape and drives
+  Vue's `shallowRef` equally well.
+- **Alpha cadence:** publish `2.0.0-alpha.N` to npm as M4 slices merge —
+  early adopters finding the library *is* the milestone's thesis; waiting for
+  2.0.0 to publish anything contradicts it.
+
+**Slices** (each a green, reviewable PR; tests + docs travel in-PR). Order is
+deliberate: typed maps stabilize the core surface first so bindings and the
+API reference are typed from day one; docs content lands after the surface
+stops moving; release is last.
+
+- ⬜ **Slice 1 — Typed message maps + Standard Schema validation.** The DX
+  showcase: `defineClient<MyMessages>(...)` giving `on`/`send` real
+  per-message typing (not the `on<ChatMessage>` cast of the early sketch);
+  optional schema validation at the codec seam via **Standard Schema**
+  (zod/valibot/arktype all conform). Invalid inbound → `error` event, not a
+  crash.
+- ⬜ **Slice 2 — Reactive seam + Vue & React bindings.** Core
+  `subscribe(listener)` over the full snapshot (per the decision above), then
+  `durablews/vue` (`useWebSocket` composable: reactive state, auto-cleanup on
+  scope dispose) and `durablews/react` (`useWebSocket` via
+  `useSyncExternalStore`) as subpath exports with optional peers. Each gets a
+  docs page written in its community's idiom. First `2.0.0-alpha` publish with
+  bindings included.
+- ⬜ **Slice 3 — Outbound middleware.** Settles the §9 shape question
+  (mirrored onion vs. `onSend` hook) with auth/token-refresh as the driving
+  use case; corrects the §4.1 diagram status note.
+- ⬜ **Slice 4 — Docs content.** API reference, guides (durability tuning,
+  codecs, middleware, framework pages), migration-from-v1 note, the
   **comparison page** (vs `reconnecting-websocket`, `partysocket`, socket.io
-  category expectations) and **`llms.txt`** for AI-assistant discovery.
-- ⬜ **Distribution assets.** Bundle-size badge enforced in CI (size-limit);
-  runnable `examples/`; launch post ("we fixed reconnection properly: full
+  category expectations), and **`llms.txt`** for AI-assistant discovery.
+- ⬜ **Slice 5 — `durablews/compat` decision.** Decide build-or-reject (§9);
+  if built: a drop-in `WebSocket`-shaped class over core for the
+  `reconnecting-websocket`/`partysocket` migration audience, with a migration
+  docs page.
+- ⬜ **Slice 6 — Cross-runtime e2e + distribution assets.** Node-as-client +
+  Deno/Bun e2e (closing §6's claim); size-limit budget enforced in CI + badge;
+  runnable `examples/`.
+- ⬜ **Slice 7 — 2.0 release.** Changesets-automated npm publish of
+  `durablews@2.0.0`; launch post ("we fixed reconnection properly: full
   jitter, bounded queues, an FSM").
-- ⬜ **First add-ons as subpath exports** (codecs/middleware/plugins) and the
-  **automated npm release of `durablews@2.0.0`** via changesets.
 
 ## 9. Open questions
 
