@@ -712,16 +712,36 @@ stops moving; release is last.
   - **Outbox journaling** — await an IndexedDB write before transmit, for
     exactly-once-across-page-reloads semantics.
 
-  And one boundary stated honestly: ordered delivery implies **head-of-line
-  blocking** — a middleware that delays one message delays everything behind
-  it. That is *correct* for every case above (pacing means delaying the
-  stream; a token refresh blocking sends is what freshness requires) and
-  *wrong* for selective tricks like per-key debounce or batching, which
-  inherently want reordering. Those belong in app code in front of `send()`,
-  not in the pipeline — out-of-order delivery from a WebSocket client would
-  be a far worse surprise than the boundary. Routing decomposes the same
-  way: inbound routing (dispatch by message type) is inbound middleware
-  today and the channels plugin (§4.6) tomorrow; the outbound half is
-  enveloping — stamping topic/destination onto each frame — a plain sync
-  transform.
+  And one boundary stated honestly. The pipeline transforms **the stream of
+  already-committed messages**, and order is part of what the stream means —
+  so ordered delivery implies head-of-line blocking: a middleware that
+  delays one message delays everything behind it. That is *correct* for
+  every case above (pacing means delaying the whole stream; a token refresh
+  blocking sends is what freshness requires). The alternative — running
+  per-message pipelines concurrently and writing in completion order —
+  silently reorders messages whenever latencies differ, a data-corrupting
+  failure mode for any create-then-update sequence.
+
+  Policies that decide **whether and when a `send()` call becomes a message
+  at all** — per-key debounce, batching, dedupe — are a different
+  *composition layer*, not a different mechanism. As middleware they would
+  have to hold message N while letting N+1 pass (reordering, which the
+  pipeline refuses) and would see every message, needing filter config to
+  scope themselves. As plain wrappers in front of `send()` they get both
+  for free, and remain fully composable — function composition at the call
+  site instead of pipeline composition over the stream:
+
+  ```ts
+  const sendTyping = debounce((s) => client.send(s), 300);
+  ```
+
+  Nothing here is "built in instead": such wrappers are userland (at most a
+  future recipes page / helpers module of send-wrappers — decide on demand,
+  M4 slice 4 at the earliest), and core ships neither. This is the layering
+  every middleware system has — rate limiting is Express/Hono middleware,
+  request coalescing happens in the caller; TCP batches via Nagle but never
+  reorders your bytes. Routing decomposes the same way: inbound routing
+  (dispatch by message type) is inbound middleware today and the channels
+  plugin (§4.6) tomorrow; the outbound half is enveloping — stamping
+  topic/destination onto each frame — a plain sync transform.
 ```
