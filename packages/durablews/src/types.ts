@@ -21,6 +21,33 @@ export interface Codec {
 }
 
 /**
+ * Tuning for automatic reconnection. All fields optional — the defaults give
+ * full-jitter exponential backoff with unlimited retries.
+ */
+export interface ReconnectOptions {
+    /** First-retry delay ceiling in ms. Default `500`. */
+    readonly baseDelay?: number;
+    /** Exponential growth factor. Default `2`. */
+    readonly factor?: number;
+    /** Delay ceiling in ms. Default `30_000`. */
+    readonly maxDelay?: number;
+    /**
+     * Full jitter: each delay is drawn uniformly from `[0, computed]`, so a
+     * fleet of clients dropped at once doesn't retry in synchronized waves.
+     * Default `true`; set `false` for exact exponential delays.
+     */
+    readonly jitter?: boolean;
+    /** Retries per disconnection before giving up. Default `Infinity`. */
+    readonly maxRetries?: number;
+    /**
+     * Decide per-close whether to reconnect (e.g. skip auth rejections by
+     * close code). Default: always reconnect. User-initiated `close()` never
+     * reconnects, regardless of this.
+     */
+    readonly shouldReconnect?: (event: CloseEvent) => boolean;
+}
+
+/**
  * Configuration options for the WebSocket client.
  */
 export interface WebSocketClientConfig {
@@ -30,6 +57,11 @@ export interface WebSocketClientConfig {
     readonly protocols?: string | string[];
     /** Wire-format codec. Defaults to JSON (`jsonCodec`). */
     readonly codec?: Codec;
+    /**
+     * Automatic reconnection — **on by default** (durable by default). Pass
+     * `false` to disable, or options to tune the backoff.
+     */
+    readonly reconnect?: false | ReconnectOptions;
 }
 
 /**
@@ -39,25 +71,32 @@ export interface WebSocketClientConfig {
  * - `connecting` — a socket is open-in-progress, awaiting the first `open`.
  * - `open` — connected and ready to send/receive.
  * - `closing` — a close has been requested, awaiting the socket to finish.
+ * - `reconnecting` — the connection dropped; waiting out the backoff delay
+ *   before the next attempt.
  * - `closed` — the socket is closed; the client may `connect()` again.
- *
- * (Reconnection introduces a `reconnecting` state in M3.)
  */
 export type ConnectionState =
     | "idle"
     | "connecting"
     | "open"
     | "closing"
+    | "reconnecting"
     | "closed";
 
 /**
  * The internal events that drive the connection FSM.
  *
  * `OPEN` / `CLOSED` originate from the underlying socket; `CONNECT` /
- * `CLOSE_REQUESTED` originate from the user calling `connect()` / `close()`.
- * Transport errors are handled out-of-band and are not FSM events — see `fsm.ts`.
+ * `CLOSE_REQUESTED` originate from the user calling `connect()` / `close()`;
+ * `RETRY` is fired when a reconnect attempt is scheduled. Transport errors are
+ * handled out-of-band and are not FSM events — see `fsm.ts`.
  */
-export type ConnectionEvent = "CONNECT" | "OPEN" | "CLOSE_REQUESTED" | "CLOSED";
+export type ConnectionEvent =
+    | "CONNECT"
+    | "OPEN"
+    | "CLOSE_REQUESTED"
+    | "CLOSED"
+    | "RETRY";
 
 /**
  * A read-only snapshot of the client's observable state. Bounded by design —
@@ -68,6 +107,21 @@ export interface ClientState {
     readonly state: ConnectionState;
     /** The most recent transport error, if any. */
     readonly lastError: Event | null;
+    /**
+     * Retries used in the current disconnection episode. `0` while healthy;
+     * resets on a successful open or a user `close()`.
+     */
+    readonly retryAttempt: number;
+}
+
+/**
+ * Payload emitted on every `reconnecting` event (one per scheduled retry).
+ */
+export interface ReconnectingEvent {
+    /** 1-based retry number within this disconnection episode. */
+    readonly attempt: number;
+    /** The backoff delay (ms) before this attempt fires. */
+    readonly delay: number;
 }
 
 /**
@@ -124,6 +178,8 @@ export interface ClientEventMap {
     error: Event | Error;
     /** The connection state changed. */
     statechange: StateChange;
+    /** A reconnect attempt was scheduled (fires once per retry). */
+    reconnecting: ReconnectingEvent;
 }
 
 /**
@@ -136,14 +192,26 @@ export interface WebSocketClient {
     /**
      * Opens the connection.
      *
-     * Resolves the first time the socket opens. Calling it while already
-     * `open` resolves immediately; calling it while `connecting` returns the
-     * same in-flight promise (idempotent). Rejects only on a terminal failure —
-     * in this release, a connection that closes before it ever opens.
+     * Resolves the first time the socket opens — including when that open is
+     * a successful *retry* (the promise survives failed attempts while
+     * reconnection is active). Calling it while already `open` resolves
+     * immediately; calling it while `connecting` returns the same in-flight
+     * promise (idempotent); calling it while `reconnecting` skips the backoff
+     * wait and attempts immediately.
      *
-     * Failures *after* the first open surface via the `error` / `close` events,
-     * not this promise. For fire-and-forget use, attach a `.catch` or listen
-     * for `error` to avoid an unhandled rejection.
+     * Rejects only on **terminal** failure: retries exhausted
+     * (`reconnect.maxRetries`), a `shouldReconnect` veto, `close()` before the
+     * first open, or — with `reconnect: false` — any close before opening.
+     *
+     * **Under the default `maxRetries: Infinity`, this promise never rejects**:
+     * against a down host it stays pending while the client keeps retrying.
+     * That is the durable-by-default contract, by design. If you need a
+     * deadline, set a finite `maxRetries` or race it:
+     * `Promise.race([client.connect(), timeout(10_000)])`.
+     *
+     * Failures *after* the first open surface via the `error` / `close` /
+     * `reconnecting` events, not this promise. For fire-and-forget use, attach
+     * a `.catch` or listen for `error` to avoid an unhandled rejection.
      */
     connect(): Promise<void>;
 

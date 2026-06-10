@@ -46,18 +46,31 @@ client.close();
 
 ## What works today
 
+- **Automatic reconnection, on by default** — full-jitter exponential backoff
+  with unlimited retries. An unexpected disconnect transparently recovers; a
+  `reconnecting` event (`{ attempt, delay }`) keeps your UI informed. Tune or
+  disable via the `reconnect` option (`baseDelay`, `factor`, `maxDelay`,
+  `jitter`, `maxRetries`, `shouldReconnect`, or `reconnect: false`).
 - Connect / send / close over the standard `WebSocket`, driven by an explicit
   connection state machine
 - Incoming-message handling and lifecycle events (`open`, `message`, `close`,
-  `error`, `statechange`) via `on()`
-- A read-only `state` and `getState()` snapshot
+  `error`, `statechange`, `reconnecting`) via `on()`
+- A read-only `state` and `getState()` snapshot (incl. `retryAttempt`)
 - A pluggable wire-format codec (`codec` option; JSON by default)
 - A message middleware pipeline (`use()`), with an opt-in `pingpong` keepalive
 
+:::note[`connect()` and unlimited retries]
+`connect()` resolves on the first successful open — including when that open is
+a successful retry. Under the default `maxRetries: Infinity` it never rejects:
+against a down host it stays pending while the client keeps trying. That is the
+durable-by-default contract. Need a deadline? Set a finite `maxRetries` or race
+it: `Promise.race([client.connect(), timeout(10_000)])`.
+:::
+
 ## On the roadmap
 
-Automatic reconnection with exponential backoff, message queueing while
-disconnected, idle detection, and channels. Until these land, treat the
-durability features as a roadmap rather than a guarantee — see the
+Message queueing while disconnected, idle detection (opt-in heartbeat), and
+channels. Until these land, treat them as a roadmap rather than a guarantee —
+see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

@@ -22,13 +22,22 @@ const TRANSITIONS: Record<
     connecting: {
         OPEN: "open",
         CLOSE_REQUESTED: "closing",
-        CLOSED: "closed"
+        CLOSED: "closed",
+        RETRY: "reconnecting"
     },
     open: {
         CLOSE_REQUESTED: "closing",
-        CLOSED: "closed"
+        CLOSED: "closed",
+        RETRY: "reconnecting"
     },
     closing: { CLOSED: "closed" },
+    // `reconnecting` = waiting out the backoff delay; no socket exists, so
+    // CLOSE_REQUESTED goes straight to `closed` (there is nothing to wait for)
+    // and OPEN/CLOSED cannot legally occur.
+    reconnecting: {
+        CONNECT: "connecting",
+        CLOSE_REQUESTED: "closed"
+    },
     closed: { CONNECT: "connecting" }
 };
 

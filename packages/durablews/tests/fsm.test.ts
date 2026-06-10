@@ -8,9 +8,13 @@ describe("connection FSM", () => {
         ["connecting", "OPEN", "open"],
         ["connecting", "CLOSE_REQUESTED", "closing"],
         ["connecting", "CLOSED", "closed"],
+        ["connecting", "RETRY", "reconnecting"],
         ["open", "CLOSE_REQUESTED", "closing"],
         ["open", "CLOSED", "closed"],
+        ["open", "RETRY", "reconnecting"],
         ["closing", "CLOSED", "closed"],
+        ["reconnecting", "CONNECT", "connecting"],
+        ["reconnecting", "CLOSE_REQUESTED", "closed"],
         ["closed", "CONNECT", "connecting"]
     ];
 
@@ -25,14 +29,22 @@ describe("connection FSM", () => {
         ["idle", "OPEN"],
         ["idle", "CLOSED"],
         ["idle", "CLOSE_REQUESTED"],
+        ["idle", "RETRY"],
         ["connecting", "CONNECT"],
         ["open", "CONNECT"],
         ["open", "OPEN"],
         ["closing", "CONNECT"],
         ["closing", "OPEN"],
+        ["closing", "RETRY"],
+        // No socket exists while waiting out the backoff, so socket-originated
+        // events cannot legally occur in `reconnecting`.
+        ["reconnecting", "OPEN"],
+        ["reconnecting", "CLOSED"],
+        ["reconnecting", "RETRY"],
         ["closed", "OPEN"],
         ["closed", "CLOSED"],
-        ["closed", "CLOSE_REQUESTED"]
+        ["closed", "CLOSE_REQUESTED"],
+        ["closed", "RETRY"]
     ];
 
     it.each(illegal)("%s + %s is illegal", (from, event) => {

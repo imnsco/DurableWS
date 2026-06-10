@@ -486,10 +486,16 @@ harness already exists, so each slice carries its own unit + integration + e2e
 coverage *and* its docs update ("roadmap → what works today") in-PR — there is no
 separate test/e2e slice.
 
-- 🚧 **Slice 1 — Reconnection + backoff.** `reconnecting` FSM state; backoff
-  scheduler (fake-timer-tested); retryable-close policy; `reconnecting` event;
-  `connect()` terminal semantics tightened to retries-exhausted. E2e: server
-  drops the socket → transparent reconnect.
+- ✅ **Slice 1 — Reconnection + backoff.** `reconnecting` FSM state +
+  `RETRY` event; pure backoff module (`backoff.ts` — full-jitter math with
+  injectable randomness, deterministically unit-tested); retryable-close policy
+  (user `close()` never retried; `shouldReconnect` veto; `maxRetries` budget);
+  `reconnecting` event (`{ attempt, delay }`, ordered statechange → close →
+  reconnecting); `retryAttempt` joins `getState()`. `connect()` survives failed
+  attempts and settles only on first open or terminal failure
+  (retries-exhausted / veto / user close-before-open); manual `connect()`
+  during `reconnecting` skips the backoff wait. E2e: server drops the socket
+  (code 1012) → real Chromium transparently reconnects and round-trips.
 - ⬜ **Slice 2 — Message queueing.** `send()` queues while not-open; bounded
   with drop-oldest + `drop` event; flush-on-(re)open (rides slice 1's reconnect).
   E2e: queued sends flush after a reconnect.
@@ -542,12 +548,13 @@ completes; scope is tracked here so it doesn't get lost:
   `error`/`statechange`). Option names refined as each seam lands.
 - Whether channels are the only plugin-shaped feature (which would let us drop
   the umbrella "plugin" concept from the public vocabulary).
-- **`connect()` can never settle under default config.** With
-  `maxRetries: Infinity` (the M3 default), "rejects on retries-exhausted" means
-  the promise never rejects — an app `await`ing `connect()` against a dead host
-  hangs silently. Arguably correct for "durable by default," but decide: add a
-  `connectTimeout` option, or document the hang as intended? (Decide in M3
-  slice 1.)
+- ~~`connect()` can never settle under default config.~~ **Settled in M3
+  slice 1: pending-forever is by design.** Under `maxRetries: Infinity` the
+  client is *still working* — a rejection would be a lie, and a built-in
+  `connectTimeout` would duplicate what userland does in one line
+  (`Promise.race([client.connect(), timeout(ms)])`) while complicating the
+  contract. Escape hatches: finite `maxRetries`, `shouldReconnect`, or the
+  race. Documented prominently in the `connect()` JSDoc and getting-started.
 - **`durablews/compat`** — ship a drop-in `WebSocket`-shaped wrapper to capture
   the `reconnecting-websocket`/`partysocket` migration audience, or explicitly
   reject it? (Decide in M4; see §2.1.)
