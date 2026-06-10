@@ -334,8 +334,27 @@ export interface WebSocketClient<TIn = unknown, TOut = unknown> {
 
     /**
      * Returns a read-only snapshot of the client's observable state.
+     *
+     * The snapshot is **referentially stable**: repeated calls return the same
+     * frozen object until something actually changes. Together with
+     * {@link subscribe} this is exactly the `subscribe`/`getSnapshot` pair
+     * React's `useSyncExternalStore` requires, and it drives Vue/Svelte
+     * reactivity equally well.
      */
     getState(): ClientState;
+
+    /**
+     * Subscribes to **any** change of the observable snapshot — connection
+     * state, `lastError`, `retryAttempt`, or `queueLength`. Unlike
+     * `on("statechange")` (which fires only on FSM transitions), this also
+     * fires when, e.g., the queue grows on a `send()` while disconnected.
+     *
+     * The listener receives no arguments; read `getState()` for the new
+     * snapshot.
+     *
+     * @returns an unsubscribe function.
+     */
+    subscribe(listener: () => void): () => void;
 }
 
 /**

@@ -70,6 +70,13 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     let retryAttempt = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
+    // subscribe() listeners plus the cached getState() snapshot. The cache
+    // makes snapshots referentially stable between changes — required by
+    // React's useSyncExternalStore (a fresh object per getSnapshot() call
+    // would loop the renderer).
+    const subscribers = new Set<() => void>();
+    let snapshot: ClientState | null = null;
+
     // The in-flight connect() promise and its settlers. A single promise is
     // shared across concurrent/repeat connect() calls so the method is
     // idempotent, and it survives failed attempts while reconnection is
@@ -86,6 +93,18 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
      *
      * @returns the new state if a transition occurred, otherwise `null`.
      */
+    /**
+     * Invalidates the cached snapshot and fires subscribe() listeners. Called
+     * after every mutation of the observable state, before the corresponding
+     * bus event, so any observer reading getState() sees fresh data.
+     */
+    function notify() {
+        snapshot = null;
+        for (const listener of [...subscribers]) {
+            listener();
+        }
+    }
+
     function transition(event: ConnectionEvent): ConnectionState | null {
         const next = nextState(state, event);
         if (next === null || next === state) {
@@ -94,6 +113,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
 
         const previous = state;
         state = next;
+        notify();
         bus.emit("statechange", { previous, current: next });
         return next;
     }
@@ -158,6 +178,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
                         `Heartbeat timeout: no inbound traffic within ${heartbeat.timeout}ms of a ping`
                     );
                     lastError = failure;
+                    notify();
                     bus.emit("error", failure);
                     socket.close(HEARTBEAT_TIMEOUT_CODE, "heartbeat timeout");
                 }
@@ -172,6 +193,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
      * failure surfaces as an `error` event and flushing continues.
      */
     function flushQueue() {
+        const hadQueued = queued.length > 0;
         while (queued.length > 0 && socket && state === "open") {
             const data = queued.shift();
             try {
@@ -180,6 +202,9 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
                 bus.emit("error", toError(error));
             }
         }
+        if (hadQueued) {
+            notify();
+        }
     }
 
     /**
@@ -187,8 +212,12 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
      * (user `close()` or terminal failure). Never silently lossy.
      */
     function dropQueued() {
+        const hadQueued = queued.length > 0;
         while (queued.length > 0) {
             bus.emit("drop", { data: queued.shift(), reason: "close" });
+        }
+        if (hadQueued) {
+            notify();
         }
     }
 
@@ -206,7 +235,10 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     }
 
     function openSocket() {
-        lastError = null;
+        if (lastError !== null) {
+            lastError = null;
+            notify();
+        }
         socket = config.protocols
             ? new WebSocket(config.url, config.protocols)
             : new WebSocket(config.url);
@@ -227,6 +259,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
 
         socket.onerror = (event: Event) => {
             lastError = event;
+            notify();
             bus.emit("error", event);
         };
 
@@ -408,6 +441,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
                     });
                 }
                 queued.push(data);
+                notify();
                 return;
             }
             throw new Error(
@@ -419,7 +453,10 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             closeRequested = true;
             clearRetryTimer();
             stopHeartbeat();
-            retryAttempt = 0;
+            if (retryAttempt !== 0) {
+                retryAttempt = 0;
+                notify();
+            }
             // The user hung up: queued messages will never send. Surface them
             // now (deterministically), not when the socket finishes closing.
             dropQueued();
@@ -454,12 +491,22 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         },
 
         getState(): ClientState {
-            return Object.freeze({
-                state,
-                lastError,
-                retryAttempt,
-                queueLength: queued.length
-            });
+            if (snapshot === null) {
+                snapshot = Object.freeze({
+                    state,
+                    lastError,
+                    retryAttempt,
+                    queueLength: queued.length
+                });
+            }
+            return snapshot;
+        },
+
+        subscribe(listener: () => void) {
+            subscribers.add(listener);
+            return () => {
+                subscribers.delete(listener);
+            };
         }
     };
 
