@@ -47,7 +47,7 @@ We use [changesets](https://github.com/changesets/changesets) for versioning and
 pnpm changeset
 ```
 
-Pick the appropriate semver bump and write a short, user-facing summary. Tooling-only or docs-only changes that don't affect consumers don't need one.
+Pick the appropriate semver bump and write a short, user-facing summary — it becomes the changelog entry verbatim. Tooling-only or docs-only changes that don't affect consumers don't need one. (Releases themselves are two merges; see [RELEASING.md](RELEASING.md).)
 
 ## Proposing changes
 
@@ -61,8 +61,9 @@ Match the weight of the process to the weight of the change:
 
 1. Branch from `main`.
 2. Make your change with tests and (if user-facing) a changeset.
-3. Ensure `pnpm verify` passes.
-4. Open a PR against `main` and fill out the template.
+3. If your change completes or alters a roadmap item, update [ROADMAP.md](ROADMAP.md) in the same PR — tracker updates travel with the work.
+4. Ensure `pnpm verify` passes.
+5. Open a PR against `main` and fill out the template.
 
 ## Plugins & add-ons
 
