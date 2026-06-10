@@ -211,13 +211,27 @@ receive a message and forget it; nothing is retained in state. Typed:
 const off = client.on<ChatMessage>("message", (msg) => { /* ... */ });
 ```
 
-### 4.6 Plugins — the only thing that adds new client API
+### 4.6 Extension vocabulary — one word per seam
 
-Most add-ons are **middleware** or **codecs**, named by their seam. The one
-category that is neither — things that add *new client methods* (e.g.
-`client.channel("room")`, presence) — are **plugins**. (If channels turn out to
-be the only such case we may simply call it "the channels API"; the plugin
-concept exists for when third parties need the same capability.)
+Every extension concept is **named by the seam it occupies**, and that word is
+used consistently across code, docs, and this RFC:
+
+| Term | What it is | Registered via | Adds client API? |
+| --- | --- | --- | --- |
+| **Middleware** | Intercepts messages on the pipeline — inbound and/or outbound, same word for both directions | `client.use(...)` | Never |
+| **Codec** | Translates the wire format | `codec` config option | Never |
+| **Plugin** | Adds new client capability (channels, presence) | TBD (M4+) | Yes — the only one |
+| **Binding** | Adapts the client to a framework's reactivity | subpath import (`durablews/vue`, `durablews/react`) | n/a — framework surface, not client surface |
+
+**Plugins** are the one category that adds *new client methods* (e.g.
+`client.channel("room")`, presence). (If channels turn out to be the only such
+case we may simply call it "the channels API"; the plugin concept exists for
+when third parties need the same capability.)
+
+**Bindings** are the neutral, cross-framework word (used in this RFC and in
+comparison contexts); each framework's docs speak its community's tongue — a
+Vue *composable*, a React *hook* (settled M4 decision). Those words name the
+*form* the binding takes in that framework, not a separate concept.
 
 The word "packs" is explicitly rejected.
 
@@ -586,9 +600,11 @@ stops moving; release is last.
   and infer types from `config.schema`. Each has a docs page in its
   community's idiom (composables / hooks). First `2.0.0-alpha` publish with
   bindings included.
-- ⬜ **Slice 3 — Outbound middleware.** Settles the §9 shape question
-  (mirrored onion vs. `onSend` hook) with auth/token-refresh as the driving
-  use case; corrects the §4.1 diagram status note.
+- ⬜ **Slice 3 — Outbound middleware.** Implements the settled §9 decision
+  (mirrored onion via the object form of `use()` — see §9 for the full
+  semantics: transmission-time execution, ordered async, short-circuit,
+  per-message error isolation, heartbeat bypass) with auth/token-refresh as
+  the driving use case; corrects the §4.1 diagram status note.
 - ⬜ **Slice 4 — Docs content.** API reference, guides (durability tuning,
   codecs, middleware, framework pages), migration-from-v1 note, the
   **comparison page** (vs `reconnecting-websocket`, `partysocket`, socket.io
@@ -636,7 +652,96 @@ stops moving; release is last.
   fidelity** (M4 slice 5). Faithful for two documented use cases — app-code
   drop-in and `webSocketImpl`-style injection — with a published known-
   deviations table rather than spec perfection. See §8 M4 slice 5.
-- **Outbound middleware shape** — same onion pipeline mirrored, or a distinct
-  hook (`onSend`)? Auth (token attach/refresh) is the driving use case. (Decide
-  in M4.)
+- ~~**Outbound middleware shape** — same onion pipeline mirrored, or a distinct
+  hook (`onSend`)? Auth (token attach/refresh) is the driving use case.~~
+  **Settled (M4 slice 3 design): mirrored onion, registered through an object
+  form of `use()`.** A bare function stays inbound (unchanged, the common
+  case); an object registers per direction:
+
+  ```ts
+  client.use((ctx, next) => { ... });                  // inbound (as today)
+  client.use({ outbound: attachToken });               // outbound only
+  client.use({ inbound: logIn, outbound: logOut });    // one logical
+                                                       // middleware, both
+                                                       // directions
+  ```
+
+  Why an onion and not an `onSend` hook: the driving use case — attaching a
+  *fresh* auth token, refreshing it when expired — is **async and
+  composable**, exactly what a hook is not. One pipeline model for both
+  directions also keeps the mental model singular ("middleware intercepts
+  messages"), and the object form gives a logical middleware (auth, logging,
+  metrics) a single registration site instead of a second method
+  (`useOutbound`) growing the API.
+
+  Semantics (the load-bearing decisions):
+
+  - **Runs at transmission time** — after dequeue, before `codec.encode` —
+    not at `send()` time. A message queued across a 30s reconnect gets a
+    token that is fresh *when it actually goes out* (the entire point of the
+    use case), and the queue keeps storing exactly what the user passed to
+    `send()`, so `drop` events keep handing back untransformed values
+    (existing invariant, unchanged).
+  - **Async is ordered.** Outbound middleware may return a promise (token
+    refresh); the outbound path serializes so messages reach the socket in
+    `send()` order even when an earlier message's middleware awaits. When no
+    middleware returns a promise (the common case), `send()` stays fully
+    synchronous — zero overhead.
+  - **Short-circuit = not sent, silently.** Returning without calling
+    `next()` is deliberate policy (filtering), not durability loss — no
+    `drop` event (`drop` means "the library couldn't deliver this", not "you
+    chose not to send it").
+  - **Errors are per-message.** A throw/rejection surfaces as an `error`
+    event; that message is not sent; subsequent messages continue (same
+    isolation the queue flush already has).
+  - **Heartbeat pings bypass outbound middleware.** They are transport-level
+    liveness, not app messages — an auth or logging middleware seeing
+    synthetic pings would be surprising, and a middleware that drops or
+    delays them would silently break dead-link detection.
+
+  Use-case grounding — async is required by the platform, not hypothetical:
+
+  - **Auth token refresh** — await the refresh endpoint, attach, send (the
+    driving case).
+  - **Payload signing / encryption** — WebCrypto (`crypto.subtle.sign` /
+    `.encrypt`) has *no synchronous API*; E2E-encrypted or HMAC-signed
+    messages require async middleware.
+  - **Compression** — `CompressionStream` is likewise async-only.
+  - **Pacing** — a semaphore/throttle that awaits a send slot, preserving
+    order.
+  - **Outbox journaling** — await an IndexedDB write before transmit, for
+    exactly-once-across-page-reloads semantics.
+
+  And one boundary stated honestly. The pipeline transforms **the stream of
+  already-committed messages**, and order is part of what the stream means —
+  so ordered delivery implies head-of-line blocking: a middleware that
+  delays one message delays everything behind it. That is *correct* for
+  every case above (pacing means delaying the whole stream; a token refresh
+  blocking sends is what freshness requires). The alternative — running
+  per-message pipelines concurrently and writing in completion order —
+  silently reorders messages whenever latencies differ, a data-corrupting
+  failure mode for any create-then-update sequence.
+
+  Policies that decide **whether and when a `send()` call becomes a message
+  at all** — per-key debounce, batching, dedupe — are a different
+  *composition layer*, not a different mechanism. As middleware they would
+  have to hold message N while letting N+1 pass (reordering, which the
+  pipeline refuses) and would see every message, needing filter config to
+  scope themselves. As plain wrappers in front of `send()` they get both
+  for free, and remain fully composable — function composition at the call
+  site instead of pipeline composition over the stream:
+
+  ```ts
+  const sendTyping = debounce((s) => client.send(s), 300);
+  ```
+
+  Nothing here is "built in instead": such wrappers are userland (at most a
+  future recipes page / helpers module of send-wrappers — decide on demand,
+  M4 slice 4 at the earliest), and core ships neither. This is the layering
+  every middleware system has — rate limiting is Express/Hono middleware,
+  request coalescing happens in the caller; TCP batches via Nagle but never
+  reorders your bytes. Routing decomposes the same way: inbound routing
+  (dispatch by message type) is inbound middleware today and the channels
+  plugin (§4.6) tomorrow; the outbound half is enveloping — stamping
+  topic/destination onto each frame — a plain sync transform.
 ```
