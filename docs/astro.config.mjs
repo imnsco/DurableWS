@@ -34,6 +34,7 @@ export default defineConfig({
                         { label: "Durability tuning", slug: "guides/durability" },
                         { label: "Middleware", slug: "guides/middleware" },
                         { label: "Codecs", slug: "guides/codecs" },
+                        { label: "Drop-in compat", slug: "guides/compat" },
                         {
                             label: "Migrating from v1",
                             slug: "guides/migrating-from-v1",

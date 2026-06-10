@@ -39,7 +39,7 @@ including the places the alternatives are ahead today.
 | Heartbeat / idle detection | ✅ opt-in, any-inbound-counts | ❌ | ❌ |
 | Observable connection state | ✅ FSM + `subscribe()`/`getState()` snapshots | `readyState` | `readyState` |
 | Framework bindings | ✅ Vue **and** React, in the box | React | ❌ |
-| Drop-in `WebSocket` class | 🚧 planned (`durablews/compat`) | ✅ | ✅ |
+| Drop-in `WebSocket` class | ✅ [`durablews/compat`](/guides/compat/) | ✅ | ✅ |
 | Dynamic URL provider | ❌ (on the radar) | ✅ sync/async | ❌ |
 | Zero dependencies | ✅ | ✅ | ✅ |
 | Actively maintained | ✅ (alpha) | ✅ | last release 2020 |
@@ -70,12 +70,6 @@ alternatives hand you `MessageEvent["data"]`.
 
 Honesty over marketing:
 
-- **Drop-in `WebSocket` compatibility.** partysocket and
-  reconnecting-websocket are classes you swap in where a `WebSocket` goes —
-  including as the `webSocketImpl` of libraries like graphql-ws. DurableWS's
-  primary API is deliberately different (and, we'd argue, better); a
-  compat-shaped `durablews/compat` export is planned for exactly this
-  audience.
 - **Dynamic URL resolution.** partysocket accepts `url` as a sync or async
   function, re-resolved per reconnect — handy for token-in-URL auth schemes.
   DurableWS handles token freshness via outbound middleware, but per-connect

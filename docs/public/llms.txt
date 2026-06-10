@@ -28,6 +28,7 @@ client.send({ type: "hello" });
 - [Durability tuning](https://durablews.imns.co/guides/durability/): reconnection, queueing, and heartbeat — defaults and every knob
 - [Middleware](https://durablews.imns.co/guides/middleware/): inbound and outbound interception, auth/token refresh, ordering semantics
 - [Codecs](https://durablews.imns.co/guides/codecs/): the wire-format seam; JSON default, custom codecs
+- [Drop-in compat](https://durablews.imns.co/guides/compat/): the WebSocket-shaped class (durablews/compat) for app-code migration and webSocketImpl injection, with its known-deviations table
 - [Vue](https://durablews.imns.co/frameworks/vue/): the useWebSocket composable (durablews/vue)
 - [React](https://durablews.imns.co/frameworks/react/): the useWebSocket hook (durablews/react)
 - [Why DurableWS?](https://durablews.imns.co/comparison/): honest comparison vs partysocket, reconnecting-websocket, socket.io
