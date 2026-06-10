@@ -29,6 +29,12 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The changesets action pushes through git, which uses the
+          # credentials checkout persists — not the action's env token. The
+          # PAT must live here for the Version PR branch push to be a
+          # real-user event (which is what makes its CI checks run).
+          token: ${{ secrets.RELEASE_TOKEN }}
       - name: Install pnpm
         uses: pnpm/action-setup@v4
       - name: Setup Node
