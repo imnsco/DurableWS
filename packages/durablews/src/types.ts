@@ -48,6 +48,18 @@ export interface ReconnectOptions {
 }
 
 /**
+ * Tuning for the outbound message queue.
+ */
+export interface QueueOptions {
+    /**
+     * Maximum queued messages. When full, the **oldest** is dropped and a
+     * `drop` event fires — never silently unbounded, never silently lossy.
+     * Default `256`.
+     */
+    readonly maxSize?: number;
+}
+
+/**
  * Configuration options for the WebSocket client.
  */
 export interface WebSocketClientConfig {
@@ -62,6 +74,12 @@ export interface WebSocketClientConfig {
      * `false` to disable, or options to tune the backoff.
      */
     readonly reconnect?: false | ReconnectOptions;
+    /**
+     * Outbound queueing while disconnected — **on by default**. `send()`
+     * during `connecting`/`reconnecting` queues and flushes in order on open.
+     * Pass `false` to make `send()` throw whenever the socket isn't open.
+     */
+    readonly queue?: false | QueueOptions;
 }
 
 /**
@@ -112,6 +130,23 @@ export interface ClientState {
      * resets on a successful open or a user `close()`.
      */
     readonly retryAttempt: number;
+    /** Messages currently waiting in the outbound queue. */
+    readonly queueLength: number;
+}
+
+/**
+ * Payload emitted on every `drop` event — a queued outbound message that will
+ * never be sent.
+ */
+export interface DropEvent {
+    /** The original (un-encoded) value passed to `send()`. */
+    readonly data: unknown;
+    /**
+     * Why it was dropped: `overflow` — the queue was full and this was the
+     * oldest entry; `close` — the connection ended (user `close()` or terminal
+     * failure) with messages still queued.
+     */
+    readonly reason: "overflow" | "close";
 }
 
 /**
@@ -180,6 +215,8 @@ export interface ClientEventMap {
     statechange: StateChange;
     /** A reconnect attempt was scheduled (fires once per retry). */
     reconnecting: ReconnectingEvent;
+    /** A queued outbound message was dropped and will never be sent. */
+    drop: DropEvent;
 }
 
 /**
@@ -217,7 +254,13 @@ export interface WebSocketClient {
 
     /**
      * Sends data over the connection. Non-string data is encoded (JSON by
-     * default). Throws if the connection is not open.
+     * default).
+     *
+     * While `connecting` or `reconnecting`, the message is **queued** (bounded,
+     * drop-oldest — see `queue` config) and flushed in order when the socket
+     * opens; queued messages that will never send surface as `drop` events.
+     * Throws when the client is `idle`, `closing`, or `closed` — states where
+     * no open is coming — or whenever the socket isn't open if `queue: false`.
      */
     send(data: unknown): void;
 

@@ -3,6 +3,7 @@ import { jsonCodec } from "@/codec";
 import { nextState } from "@/fsm";
 import { defineEventBus } from "@/helpers/event-bus";
 import { runPipeline } from "@/pipeline";
+import { resolveQueue } from "@/queue";
 import type {
     ClientEventMap,
     ClientState,
@@ -41,7 +42,13 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     const bus = defineEventBus();
     const codec = config.codec ?? jsonCodec;
     const reconnect = resolveReconnect(config.reconnect);
+    const queue = resolveQueue(config.queue);
     const middlewares: Middleware[] = [];
+
+    // Outbound messages awaiting an open socket, in send() order. Original
+    // (un-encoded) values: encoding happens at flush, so a drop event can hand
+    // the user back exactly what they passed to send().
+    const queued: unknown[] = [];
 
     let socket: WebSocket | null = null;
     let state: ConnectionState = "idle";
@@ -100,6 +107,33 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     }
 
     /**
+     * Sends every queued message in order. Called once the socket opens,
+     * *before* the `open` event, so the backlog (sent earlier in time)
+     * precedes anything an `open` handler sends. A per-message encode/send
+     * failure surfaces as an `error` event and flushing continues.
+     */
+    function flushQueue() {
+        while (queued.length > 0 && socket && state === "open") {
+            const data = queued.shift();
+            try {
+                socket.send(codec.encode(data));
+            } catch (error) {
+                bus.emit("error", toError(error));
+            }
+        }
+    }
+
+    /**
+     * Empties the queue as `drop` events — these messages will never be sent
+     * (user `close()` or terminal failure). Never silently lossy.
+     */
+    function dropQueued() {
+        while (queued.length > 0) {
+            bus.emit("drop", { data: queued.shift(), reason: "close" });
+        }
+    }
+
+    /**
      * Whether an unexpected close should be retried: reconnection enabled, not
      * a user `close()`, retries left, and no `shouldReconnect` veto.
      */
@@ -121,6 +155,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         socket.onopen = () => {
             retryAttempt = 0;
             transition("OPEN");
+            flushQueue();
             bus.emit("open");
             settleConnected();
         };
@@ -157,6 +192,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             }
 
             transition("CLOSED");
+            dropQueued();
             bus.emit("close", event);
             // Terminal for any in-flight connect(): closed before first open
             // with no (further) retries coming.
@@ -261,18 +297,36 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         },
 
         send(data: unknown) {
-            if (!socket || state !== "open") {
-                throw new Error(
-                    `Cannot send: connection is not open (state: "${state}")`
-                );
+            if (socket && state === "open") {
+                socket.send(codec.encode(data));
+                return;
             }
-            socket.send(codec.encode(data));
+            // An open is coming (or being retried): queue, bounded drop-oldest.
+            if (
+                queue !== null &&
+                (state === "connecting" || state === "reconnecting")
+            ) {
+                if (queued.length >= queue.maxSize) {
+                    bus.emit("drop", {
+                        data: queued.shift(),
+                        reason: "overflow"
+                    });
+                }
+                queued.push(data);
+                return;
+            }
+            throw new Error(
+                `Cannot send: connection is not open (state: "${state}")`
+            );
         },
 
         close(code?: number, reason?: string) {
             closeRequested = true;
             clearRetryTimer();
             retryAttempt = 0;
+            // The user hung up: queued messages will never send. Surface them
+            // now (deterministically), not when the socket finishes closing.
+            dropQueued();
 
             if (state === "reconnecting") {
                 // No socket exists while waiting out the backoff: go straight
@@ -304,7 +358,12 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         },
 
         getState(): ClientState {
-            return Object.freeze({ state, lastError, retryAttempt });
+            return Object.freeze({
+                state,
+                lastError,
+                retryAttempt,
+                queueLength: queued.length
+            });
         }
     };
 
