@@ -2,8 +2,10 @@ import { WebSocketServer } from "ws";
 
 /**
  * Starts a throwaway WebSocket server on a random free port for the browser
- * e2e tests. It echoes any message back, except a textual "ping" which it
- * answers with "pong" (so the pingpong middleware can be exercised end-to-end).
+ * e2e tests. It echoes any message back, with two special textual commands:
+ * "ping" is answered with "pong" (pingpong middleware), and "drop" makes the
+ * server close that connection — the server stays up, so a reconnecting
+ * client can come back (reconnection e2e).
  *
  * @returns the chosen port and a close() that resolves once the server is down.
  */
@@ -22,6 +24,10 @@ export function startEchoServer() {
         wss.on("connection", (socket) => {
             socket.on("message", (data) => {
                 const text = data.toString();
+                if (text === "drop") {
+                    socket.close(1012, "server drop");
+                    return;
+                }
                 socket.send(text === "ping" ? "pong" : text);
             });
         });

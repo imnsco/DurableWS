@@ -1,3 +1,4 @@
+import { computeDelay, resolveReconnect } from "@/backoff";
 import { jsonCodec } from "@/codec";
 import { nextState } from "@/fsm";
 import { defineEventBus } from "@/helpers/event-bus";
@@ -15,6 +16,10 @@ import type {
 /**
  * Creates a WebSocket client driven by an explicit connection FSM.
  *
+ * Durable by default: an unexpected disconnect schedules a reconnect with
+ * full-jitter exponential backoff (see `backoff.ts`); pass `reconnect: false`
+ * to opt out.
+ *
  * @param config - Connection configuration (at minimum, a `url`).
  *
  * @example
@@ -22,6 +27,9 @@ import type {
  * const ws = client({ url: "wss://example.com/socket" });
  *
  * ws.on("message", (data) => console.log("received:", data));
+ * ws.on("reconnecting", ({ attempt, delay }) => {
+ *     console.log(`retry #${attempt} in ${Math.round(delay)}ms`);
+ * });
  *
  * await ws.connect();
  * ws.send({ type: "hello", message: "world" });
@@ -32,15 +40,24 @@ import type {
 export function client(config: WebSocketClientConfig): WebSocketClient {
     const bus = defineEventBus();
     const codec = config.codec ?? jsonCodec;
+    const reconnect = resolveReconnect(config.reconnect);
     const middlewares: Middleware[] = [];
 
     let socket: WebSocket | null = null;
     let state: ConnectionState = "idle";
     let lastError: Event | null = null;
 
+    // True between a user close() and the next connect(); suppresses
+    // reconnection so "the user hung up" is never retried.
+    let closeRequested = false;
+    // Retries used in the current disconnection episode (see ClientState).
+    let retryAttempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
     // The in-flight connect() promise and its settlers. A single promise is
     // shared across concurrent/repeat connect() calls so the method is
-    // idempotent; it is cleared once the connection opens or terminally fails.
+    // idempotent, and it survives failed attempts while reconnection is
+    // active — it settles only on first open or terminal failure.
     let pending: {
         readonly promise: Promise<void>;
         readonly resolve: () => void;
@@ -75,6 +92,26 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         pending = null;
     }
 
+    function clearRetryTimer() {
+        if (retryTimer !== null) {
+            clearTimeout(retryTimer);
+            retryTimer = null;
+        }
+    }
+
+    /**
+     * Whether an unexpected close should be retried: reconnection enabled, not
+     * a user `close()`, retries left, and no `shouldReconnect` veto.
+     */
+    function isRetryable(event: CloseEvent): boolean {
+        return (
+            reconnect !== null &&
+            !closeRequested &&
+            retryAttempt < reconnect.maxRetries &&
+            reconnect.shouldReconnect(event)
+        );
+    }
+
     function openSocket() {
         lastError = null;
         socket = config.protocols
@@ -82,6 +119,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             : new WebSocket(config.url);
 
         socket.onopen = () => {
+            retryAttempt = 0;
             transition("OPEN");
             bus.emit("open");
             settleConnected();
@@ -98,17 +136,38 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
 
         socket.onclose = (event: CloseEvent) => {
             const wasConnecting = state === "connecting";
-            transition("CLOSED");
             socket = null;
+
+            if (reconnect !== null && isRetryable(event)) {
+                // Event order is deliberate: statechange (state already moved
+                // to `reconnecting`), then the close that caused it, then the
+                // retry announcement with attempt + delay.
+                retryAttempt += 1;
+                const delay = computeDelay(retryAttempt - 1, reconnect);
+                transition("RETRY");
+                bus.emit("close", event);
+                bus.emit("reconnecting", { attempt: retryAttempt, delay });
+                retryTimer = setTimeout(() => {
+                    retryTimer = null;
+                    if (transition("CONNECT") !== null) {
+                        openSocket();
+                    }
+                }, delay);
+                return; // pending connect() survives the retry
+            }
+
+            transition("CLOSED");
             bus.emit("close", event);
-            // A socket that closes before it ever opened is a terminal failure
-            // for this connect() call (reconnection lands in M3).
-            if (wasConnecting) {
+            // Terminal for any in-flight connect(): closed before first open
+            // with no (further) retries coming.
+            if (wasConnecting || pending) {
                 settleFailed(
                     new Error(
-                        `WebSocket closed before opening (code ${event.code}${
-                            event.reason ? `: ${event.reason}` : ""
-                        })`
+                        retryAttempt > 0
+                            ? `WebSocket reconnect gave up after ${retryAttempt} attempt(s) (code ${event.code})`
+                            : `WebSocket closed before opening (code ${event.code}${
+                                  event.reason ? `: ${event.reason}` : ""
+                              })`
                     )
                 );
             }
@@ -137,6 +196,21 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         }
     }
 
+    /** Lazily create (or reuse) the shared connect() promise. */
+    function ensurePending(): Promise<void> {
+        if (pending) {
+            return pending.promise;
+        }
+        let resolve!: () => void;
+        let reject!: (reason: Error) => void;
+        const promise = new Promise<void>((res, rej) => {
+            resolve = res;
+            reject = rej;
+        });
+        pending = { promise, resolve, reject };
+        return promise;
+    }
+
     const api: WebSocketClient = {
         get state() {
             return state;
@@ -146,8 +220,8 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             if (state === "open") {
                 return Promise.resolve();
             }
-            if (state === "connecting" && pending) {
-                return pending.promise;
+            if (state === "connecting") {
+                return ensurePending();
             }
             if (state === "closing") {
                 return Promise.reject(
@@ -156,30 +230,31 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
                     )
                 );
             }
+            if (state === "reconnecting") {
+                // Skip the rest of the backoff wait and attempt now.
+                clearRetryTimer();
+                const promise = ensurePending();
+                transition("CONNECT");
+                openSocket();
+                return promise;
+            }
 
-            // idle or closed → start a fresh attempt.
+            // idle or closed → start a fresh episode.
+            closeRequested = false;
+            retryAttempt = 0;
             if (transition("CONNECT") === null) {
                 return Promise.reject(
                     new Error(`Cannot connect() from state "${state}"`)
                 );
             }
 
-            let resolve!: () => void;
-            let reject!: (reason: Error) => void;
-            const promise = new Promise<void>((res, rej) => {
-                resolve = res;
-                reject = rej;
-            });
-            pending = { promise, resolve, reject };
-
+            const promise = ensurePending();
             try {
                 openSocket();
             } catch (error) {
                 transition("CLOSED");
                 socket = null;
-                const reason =
-                    error instanceof Error ? error : new Error(String(error));
-                settleFailed(reason);
+                settleFailed(toError(error));
             }
 
             return promise;
@@ -195,6 +270,19 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         },
 
         close(code?: number, reason?: string) {
+            closeRequested = true;
+            clearRetryTimer();
+            retryAttempt = 0;
+
+            if (state === "reconnecting") {
+                // No socket exists while waiting out the backoff: go straight
+                // to closed and terminate any in-flight connect().
+                transition("CLOSE_REQUESTED");
+                settleFailed(
+                    new Error("close() called before the connection opened")
+                );
+                return;
+            }
             if (!socket) {
                 return;
             }
@@ -216,7 +304,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         },
 
         getState(): ClientState {
-            return Object.freeze({ state, lastError });
+            return Object.freeze({ state, lastError, retryAttempt });
         }
     };
 

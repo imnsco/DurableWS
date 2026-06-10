@@ -68,3 +68,46 @@ test("reconnects after closing, against a real WebSocket", async ({ page }) => {
     expect(result.afterReconnect).toBe("open");
     expect(result.echoed).toContain("again");
 });
+
+test("transparently reconnects when the server drops the connection", async ({
+    page
+}) => {
+    await page.goto("/e2e/app.html");
+
+    const result = await page.evaluate(async (wsUrl) => {
+        const { defineClient } = await import("/dist/index.js");
+        const ws = defineClient({
+            url: wsUrl,
+            reconnect: { baseDelay: 50, jitter: false }
+        });
+        const states: string[] = [];
+        ws.on("statechange", ({ current }: { current: string }) =>
+            states.push(current)
+        );
+        const retries: number[] = [];
+        ws.on("reconnecting", ({ attempt }: { attempt: number }) =>
+            retries.push(attempt)
+        );
+
+        await ws.connect();
+        ws.send("drop"); // the server closes this connection (code 1012)
+
+        // Wait for the drop + automatic reconnect to play out.
+        await new Promise((r) => setTimeout(r, 600));
+        const recovered = ws.state;
+
+        // Prove the recovered connection actually works.
+        const echoed: unknown[] = [];
+        ws.on("message", (m: unknown) => echoed.push(m));
+        ws.send("after-reconnect");
+        await new Promise((r) => setTimeout(r, 200));
+        ws.close();
+
+        return { states, retries, recovered, echoed };
+    }, `ws://localhost:${server.port}`);
+
+    expect(result.states).toContain("reconnecting");
+    expect(result.retries).toContain(1);
+    expect(result.recovered).toBe("open");
+    expect(result.echoed).toContain("after-reconnect");
+});

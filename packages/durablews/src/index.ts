@@ -16,6 +16,7 @@ export function defineClient(config: WebSocketClientConfig): WebSocketClient {
     return client(config);
 }
 
+export { RECONNECT_DEFAULTS } from "@/backoff";
 export { jsonCodec } from "@/codec";
 export { pingpong } from "@/middleware";
 export type {
@@ -25,6 +26,8 @@ export type {
     ConnectionState,
     MessageContext,
     Middleware,
+    ReconnectingEvent,
+    ReconnectOptions,
     StateChange,
     WebSocketClient,
     WebSocketClientConfig

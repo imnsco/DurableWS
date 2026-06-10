@@ -13,7 +13,9 @@ describe("client", () => {
 
     beforeEach(() => {
         server = new WS(URL);
-        ws = client({ url: URL });
+        // Reconnection is exercised by its own suite below; these tests verify
+        // the non-reconnect mechanics, so terminal-close semantics apply.
+        ws = client({ url: URL, reconnect: false });
     });
 
     afterEach(() => {
@@ -103,7 +105,7 @@ describe("client", () => {
         };
         const customUrl = "ws://localhost:1235";
         const customServer = new WS(customUrl);
-        const custom = client({ url: customUrl, codec });
+        const custom = client({ url: customUrl, codec, reconnect: false });
 
         const opened = custom.connect();
         await customServer.connected;
@@ -251,7 +253,11 @@ describe("client", () => {
         await connected();
         const snapshot = ws.getState();
         expect(Object.isFrozen(snapshot)).toBe(true);
-        expect(snapshot).toEqual({ state: "open", lastError: null });
+        expect(snapshot).toEqual({
+            state: "open",
+            lastError: null,
+            retryAttempt: 0
+        });
     });
 
     it("emits the full statechange sequence across a connect/close cycle", async () => {
@@ -272,5 +278,152 @@ describe("client", () => {
 
         await expect(ws.connect()).rejects.toThrow(/closing/);
         await server.closed;
+    });
+});
+
+describe("reconnection", () => {
+    const RURL = "ws://localhost:1240";
+    let server: WS;
+
+    afterEach(() => {
+        WS.clean();
+    });
+
+    async function open(c: WebSocketClient) {
+        const opened = c.connect();
+        await server.connected;
+        await opened;
+    }
+
+    it("retries an unexpected close: statechange → close → reconnecting", async () => {
+        server = new WS(RURL);
+        const c = client({
+            url: RURL,
+            reconnect: { baseDelay: 30_000, jitter: false }
+        });
+        const order: string[] = [];
+        c.on("statechange", ({ current }) => order.push(`state:${current}`));
+        c.on("close", () => order.push("close"));
+        c.on("reconnecting", ({ attempt, delay }) =>
+            order.push(`reconnecting:${attempt}:${delay}`)
+        );
+        await open(c);
+
+        server.close();
+        await vi.waitFor(() => expect(c.state).toBe("reconnecting"));
+
+        expect(order).toEqual([
+            "state:connecting",
+            "state:open",
+            "state:reconnecting",
+            "close",
+            "reconnecting:1:30000"
+        ]);
+        expect(c.getState().retryAttempt).toBe(1);
+        c.close();
+    });
+
+    it("reconnects when the server comes back and resets retryAttempt", async () => {
+        server = new WS(RURL);
+        const c = client({
+            url: RURL,
+            reconnect: { baseDelay: 10, jitter: false }
+        });
+        await open(c);
+
+        server.close();
+        WS.clean();
+        server = new WS(RURL);
+
+        await vi.waitFor(() => expect(c.state).toBe("open"), {
+            timeout: 2000
+        });
+        expect(c.getState().retryAttempt).toBe(0);
+        c.close();
+    });
+
+    it("connect() survives a down server and resolves on a successful retry", async () => {
+        // No server yet — the first attempt fails and retries begin.
+        const c = client({
+            url: RURL,
+            reconnect: { baseDelay: 10, jitter: false }
+        });
+        const opened = c.connect();
+        await vi.waitFor(() => expect(c.state).toBe("reconnecting"));
+
+        server = new WS(RURL);
+        await opened;
+        expect(c.state).toBe("open");
+        c.close();
+    });
+
+    it("rejects connect() once maxRetries is exhausted", async () => {
+        const c = client({
+            url: RURL,
+            reconnect: { baseDelay: 5, jitter: false, maxRetries: 2 }
+        });
+        await expect(c.connect()).rejects.toThrow(/gave up after 2 attempt/);
+        expect(c.state).toBe("closed");
+        expect(c.getState().retryAttempt).toBe(2);
+    });
+
+    it("honors a shouldReconnect veto", async () => {
+        server = new WS(RURL);
+        const c = client({
+            url: RURL,
+            reconnect: { shouldReconnect: () => false }
+        });
+        await open(c);
+
+        server.close();
+        await vi.waitFor(() => expect(c.state).toBe("closed"));
+        expect(c.getState().retryAttempt).toBe(0);
+    });
+
+    it("never reconnects after a user close()", async () => {
+        server = new WS(RURL);
+        const c = client({
+            url: RURL,
+            reconnect: { baseDelay: 5, jitter: false }
+        });
+        await open(c);
+
+        c.close();
+        await server.closed;
+        expect(c.state).toBe("closed");
+
+        // Give a would-be retry window time to fire, then re-assert.
+        await new Promise((r) => setTimeout(r, 30));
+        expect(c.state).toBe("closed");
+    });
+
+    it("close() during reconnecting cancels the retry and rejects connect()", async () => {
+        const c = client({
+            url: RURL,
+            reconnect: { baseDelay: 60_000, jitter: false }
+        });
+        const opened = c.connect();
+        await vi.waitFor(() => expect(c.state).toBe("reconnecting"));
+
+        c.close();
+        expect(c.state).toBe("closed");
+        await expect(opened).rejects.toThrow(/close\(\) called/);
+    });
+
+    it("connect() during reconnecting skips the backoff and attempts now", async () => {
+        const c = client({
+            url: RURL,
+            reconnect: { baseDelay: 60_000, jitter: false }
+        });
+        const opened = c.connect();
+        await vi.waitFor(() => expect(c.state).toBe("reconnecting"));
+
+        server = new WS(RURL);
+        const retried = c.connect();
+        await server.connected;
+        await retried;
+        await opened;
+        expect(c.state).toBe("open");
+        c.close();
     });
 });
