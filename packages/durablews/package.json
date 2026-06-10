@@ -1,6 +1,6 @@
 {
     "name": "durablews",
-    "version": "2.0.0-alpha.0",
+    "version": "2.0.0-alpha.1",
     "description": "A resilient, TypeScript-based WebSocket client",
     "type": "module",
     "main": "./dist/index.cjs",
