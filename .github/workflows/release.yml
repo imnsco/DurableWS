@@ -56,16 +56,10 @@ jobs:
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # KNOWN LIMITATION — the Version PR opens without its required checks:
-      # the changesets action pushes with GITHUB_TOKEN, whose events never
-      # trigger workflows (GitHub's recursion guard). A workflow_dispatch'd
-      # CI run was tried and rejected: its check suite lands on the commit
-      # but GitHub does not associate workflow_dispatch suites with PRs, so
-      # the merge gate ignores it. The two real options:
-      #   1. (recommended) a fine-grained PAT (contents + pull-requests:
-      #      write, this repo only) as a RELEASE_TOKEN secret, passed to the
-      #      changesets step's GITHUB_TOKEN env — its pushes trigger CI
-      #      normally;
-      #   2. one manual nudge per release: close + reopen the Version PR
-      #      (any real user's event re-triggers CI).
+          # RELEASE_TOKEN: a fine-grained PAT (this repo only; contents +
+          # pull-requests write — deliberately NO workflows permission).
+          # The built-in GITHUB_TOKEN cannot be used here: its pushes never
+          # trigger workflows (GitHub's recursion guard), so the Version PR
+          # would open without its required checks. A real credential's
+          # pushes fire CI normally and the PR arrives mergeable.
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
