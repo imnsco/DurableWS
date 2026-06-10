@@ -586,9 +586,11 @@ stops moving; release is last.
   and infer types from `config.schema`. Each has a docs page in its
   community's idiom (composables / hooks). First `2.0.0-alpha` publish with
   bindings included.
-- ⬜ **Slice 3 — Outbound middleware.** Settles the §9 shape question
-  (mirrored onion vs. `onSend` hook) with auth/token-refresh as the driving
-  use case; corrects the §4.1 diagram status note.
+- ⬜ **Slice 3 — Outbound middleware.** Implements the settled §9 decision
+  (mirrored onion via the object form of `use()` — see §9 for the full
+  semantics: transmission-time execution, ordered async, short-circuit,
+  per-message error isolation, heartbeat bypass) with auth/token-refresh as
+  the driving use case; corrects the §4.1 diagram status note.
 - ⬜ **Slice 4 — Docs content.** API reference, guides (durability tuning,
   codecs, middleware, framework pages), migration-from-v1 note, the
   **comparison page** (vs `reconnecting-websocket`, `partysocket`, socket.io
@@ -636,7 +638,50 @@ stops moving; release is last.
   fidelity** (M4 slice 5). Faithful for two documented use cases — app-code
   drop-in and `webSocketImpl`-style injection — with a published known-
   deviations table rather than spec perfection. See §8 M4 slice 5.
-- **Outbound middleware shape** — same onion pipeline mirrored, or a distinct
-  hook (`onSend`)? Auth (token attach/refresh) is the driving use case. (Decide
-  in M4.)
+- ~~**Outbound middleware shape** — same onion pipeline mirrored, or a distinct
+  hook (`onSend`)? Auth (token attach/refresh) is the driving use case.~~
+  **Settled (M4 slice 3 design): mirrored onion, registered through an object
+  form of `use()`.** A bare function stays inbound (unchanged, the common
+  case); an object registers per direction:
+
+  ```ts
+  client.use((ctx, next) => { ... });                  // inbound (as today)
+  client.use({ outbound: attachToken });               // outbound only
+  client.use({ inbound: logIn, outbound: logOut });    // one logical
+                                                       // middleware, both
+                                                       // directions
+  ```
+
+  Why an onion and not an `onSend` hook: the driving use case — attaching a
+  *fresh* auth token, refreshing it when expired — is **async and
+  composable**, exactly what a hook is not. One pipeline model for both
+  directions also keeps the mental model singular ("middleware intercepts
+  messages"), and the object form gives a logical middleware (auth, logging,
+  metrics) a single registration site instead of a second method
+  (`useOutbound`) growing the API.
+
+  Semantics (the load-bearing decisions):
+
+  - **Runs at transmission time** — after dequeue, before `codec.encode` —
+    not at `send()` time. A message queued across a 30s reconnect gets a
+    token that is fresh *when it actually goes out* (the entire point of the
+    use case), and the queue keeps storing exactly what the user passed to
+    `send()`, so `drop` events keep handing back untransformed values
+    (existing invariant, unchanged).
+  - **Async is ordered.** Outbound middleware may return a promise (token
+    refresh); the outbound path serializes so messages reach the socket in
+    `send()` order even when an earlier message's middleware awaits. When no
+    middleware returns a promise (the common case), `send()` stays fully
+    synchronous — zero overhead.
+  - **Short-circuit = not sent, silently.** Returning without calling
+    `next()` is deliberate policy (filtering), not durability loss — no
+    `drop` event (`drop` means "the library couldn't deliver this", not "you
+    chose not to send it").
+  - **Errors are per-message.** A throw/rejection surfaces as an `error`
+    event; that message is not sent; subsequent messages continue (same
+    isolation the queue flush already has).
+  - **Heartbeat pings bypass outbound middleware.** They are transport-level
+    liveness, not app messages — an auth or logging middleware seeing
+    synthetic pings would be surprising, and a middleware that drops or
+    delays them would silently break dead-link detection.
 ```
