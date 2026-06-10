@@ -111,3 +111,44 @@ test("transparently reconnects when the server drops the connection", async ({
     expect(result.recovered).toBe("open");
     expect(result.echoed).toContain("after-reconnect");
 });
+
+test("flushes messages queued while disconnected once reconnected", async ({
+    page
+}) => {
+    await page.goto("/e2e/app.html");
+
+    const result = await page.evaluate(async (wsUrl) => {
+        const { defineClient } = await import("/dist/index.js");
+        const ws = defineClient({
+            url: wsUrl,
+            reconnect: { baseDelay: 50, jitter: false }
+        });
+        const echoed: unknown[] = [];
+        ws.on("message", (m: unknown) => echoed.push(m));
+
+        await ws.connect();
+        const droppedToReconnecting = new Promise<void>((resolve) => {
+            ws.on("statechange", ({ current }: { current: string }) => {
+                if (current === "reconnecting") {
+                    resolve();
+                }
+            });
+        });
+
+        ws.send("drop"); // server closes this connection
+        await droppedToReconnecting;
+
+        ws.send("queued-while-down"); // no socket exists: this must queue
+        const queuedLength = ws.getState().queueLength;
+
+        await new Promise((r) => setTimeout(r, 600)); // reconnect + flush
+        const finalState = ws.state;
+        ws.close();
+
+        return { queuedLength, echoed, finalState };
+    }, `ws://localhost:${server.port}`);
+
+    expect(result.queuedLength).toBe(1);
+    expect(result.finalState).toBe("open");
+    expect(result.echoed).toContain("queued-while-down");
+});

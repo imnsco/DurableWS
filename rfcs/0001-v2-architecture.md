@@ -496,9 +496,15 @@ separate test/e2e slice.
   (retries-exhausted / veto / user close-before-open); manual `connect()`
   during `reconnecting` skips the backoff wait. E2e: server drops the socket
   (code 1012) → real Chromium transparently reconnects and round-trips.
-- ⬜ **Slice 2 — Message queueing.** `send()` queues while not-open; bounded
-  with drop-oldest + `drop` event; flush-on-(re)open (rides slice 1's reconnect).
-  E2e: queued sends flush after a reconnect.
+- ✅ **Slice 2 — Message queueing.** `send()` queues during
+  `connecting`/`reconnecting` (un-encoded values, so `drop` hands back exactly
+  what was passed); bounded drop-oldest (`queue.ts`, default 256) with a `drop`
+  event (`{ data, reason: "overflow" | "close" }`); flush in order on open,
+  *before* the `open` event (backlog precedes anything an open-handler sends);
+  user `close()` and terminal failure drop the queue as `drop` events — never
+  silently lossy. `queueLength` joins `getState()`; `send()` still throws in
+  `idle`/`closing`/`closed` and (always) under `queue: false`. E2e: a message
+  sent while the server is down flushes after the transparent reconnect.
 - ⬜ **Slice 3 — Idle detection / heartbeat.** Opt-in keepalive + liveness
   timeout that forces a reconnect on a silent link. E2e: heartbeat-triggered
   recovery.

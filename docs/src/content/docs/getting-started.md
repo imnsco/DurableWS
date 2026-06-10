@@ -51,11 +51,17 @@ client.close();
   `reconnecting` event (`{ attempt, delay }`) keeps your UI informed. Tune or
   disable via the `reconnect` option (`baseDelay`, `factor`, `maxDelay`,
   `jitter`, `maxRetries`, `shouldReconnect`, or `reconnect: false`).
+- **Message queueing while disconnected, on by default** — `send()` during
+  `connecting`/`reconnecting` queues (bounded, 256 by default) and flushes in
+  order when the socket opens. Dropped messages are never silent: every one
+  fires a `drop` event (`{ data, reason }`). Tune via `queue: { maxSize }` or
+  restore throw-when-not-open with `queue: false`.
 - Connect / send / close over the standard `WebSocket`, driven by an explicit
   connection state machine
 - Incoming-message handling and lifecycle events (`open`, `message`, `close`,
-  `error`, `statechange`, `reconnecting`) via `on()`
-- A read-only `state` and `getState()` snapshot (incl. `retryAttempt`)
+  `error`, `statechange`, `reconnecting`, `drop`) via `on()`
+- A read-only `state` and `getState()` snapshot (incl. `retryAttempt` and
+  `queueLength`)
 - A pluggable wire-format codec (`codec` option; JSON by default)
 - A message middleware pipeline (`use()`), with an opt-in `pingpong` keepalive
 
@@ -69,8 +75,7 @@ it: `Promise.race([client.connect(), timeout(10_000)])`.
 
 ## On the roadmap
 
-Message queueing while disconnected, idle detection (opt-in heartbeat), and
-channels. Until these land, treat them as a roadmap rather than a guarantee —
-see the
+Idle detection (opt-in heartbeat) and channels. Until these land, treat them as
+a roadmap rather than a guarantee — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

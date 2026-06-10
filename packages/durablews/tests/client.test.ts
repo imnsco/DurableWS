@@ -256,7 +256,8 @@ describe("client", () => {
         expect(snapshot).toEqual({
             state: "open",
             lastError: null,
-            retryAttempt: 0
+            retryAttempt: 0,
+            queueLength: 0
         });
     });
 
@@ -425,5 +426,142 @@ describe("reconnection", () => {
         await opened;
         expect(c.state).toBe("open");
         c.close();
+    });
+});
+
+describe("outbound queue", () => {
+    const QURL = "ws://localhost:1241";
+    let server: WS;
+
+    afterEach(() => {
+        WS.clean();
+    });
+
+    it("queues sends while connecting and flushes in order on open", async () => {
+        server = new WS(QURL);
+        const c = client({ url: QURL, reconnect: false });
+
+        const opened = c.connect();
+        c.send("first");
+        c.send({ n: 2 });
+        expect(c.state).toBe("connecting");
+        expect(c.getState().queueLength).toBe(2);
+
+        await server.connected;
+        await opened;
+
+        await expect(server).toReceiveMessage("first");
+        await expect(server).toReceiveMessage(JSON.stringify({ n: 2 }));
+        expect(c.getState().queueLength).toBe(0);
+        c.close();
+    });
+
+    it("queues sends while reconnecting and flushes after recovery", async () => {
+        server = new WS(QURL);
+        const c = client({
+            url: QURL,
+            reconnect: { baseDelay: 10, jitter: false }
+        });
+        const opened = c.connect();
+        await server.connected;
+        await opened;
+
+        server.close();
+        await vi.waitFor(() => expect(c.state).toBe("reconnecting"));
+        c.send("while-down");
+        expect(c.getState().queueLength).toBe(1);
+
+        WS.clean();
+        server = new WS(QURL);
+        await vi.waitFor(() => expect(c.state).toBe("open"), {
+            timeout: 2000
+        });
+        await expect(server).toReceiveMessage("while-down");
+        expect(c.getState().queueLength).toBe(0);
+        c.close();
+    });
+
+    it("drops the oldest message on overflow, with a drop event", async () => {
+        server = new WS(QURL);
+        const c = client({
+            url: QURL,
+            reconnect: false,
+            queue: { maxSize: 2 }
+        });
+        const drops = vi.fn();
+        c.on("drop", drops);
+
+        const opened = c.connect();
+        c.send("a");
+        c.send("b");
+        c.send("c"); // overflows: "a" is dropped
+
+        expect(drops).toHaveBeenCalledWith({ data: "a", reason: "overflow" });
+        expect(c.getState().queueLength).toBe(2);
+
+        await server.connected;
+        await opened;
+        await expect(server).toReceiveMessage("b");
+        await expect(server).toReceiveMessage("c");
+        c.close();
+    });
+
+    it("queue: false restores throw-when-not-open", async () => {
+        server = new WS(QURL);
+        const c = client({ url: QURL, reconnect: false, queue: false });
+        c.connect().catch(() => {});
+        expect(c.state).toBe("connecting");
+        expect(() => c.send("nope")).toThrow(/not open/);
+        c.close();
+    });
+
+    it("still throws when idle — no open is coming", () => {
+        const c = client({ url: QURL });
+        expect(() => c.send("nope")).toThrow(/not open/);
+    });
+
+    it("user close() drops queued messages as drop events", async () => {
+        server = new WS(QURL);
+        const c = client({ url: QURL, reconnect: false });
+        const drops = vi.fn();
+        c.on("drop", drops);
+
+        c.connect().catch(() => {});
+        c.send("never-sent");
+        expect(c.getState().queueLength).toBe(1);
+
+        c.close();
+        expect(drops).toHaveBeenCalledWith({
+            data: "never-sent",
+            reason: "close"
+        });
+        expect(c.getState().queueLength).toBe(0);
+    });
+
+    it("terminal failure drops queued messages as drop events", async () => {
+        // No server: retries exhaust, the close is terminal.
+        const c = client({
+            url: QURL,
+            reconnect: { baseDelay: 5, jitter: false, maxRetries: 1 }
+        });
+        const drops = vi.fn();
+        c.on("drop", drops);
+
+        // Queue synchronously the moment the (only) retry is scheduled — the
+        // reconnecting window is too brief to poll for.
+        c.on("reconnecting", ({ attempt }) => {
+            if (attempt === 1) {
+                c.send("doomed");
+            }
+        });
+
+        const opened = c.connect();
+        await expect(opened).rejects.toThrow(/gave up/);
+        expect(c.state).toBe("closed");
+        expect(drops).toHaveBeenCalledWith({
+            data: "doomed",
+            reason: "close"
+        });
+        expect(c.getState().queueLength).toBe(0);
     });
 });
