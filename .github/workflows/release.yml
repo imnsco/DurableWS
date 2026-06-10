@@ -13,7 +13,6 @@ permissions:
   contents: write
   pull-requests: write
   id-token: write # npm trusted publishing (OIDC) + provenance
-  actions: write # dispatch CI at the Version PR branch (see below)
 
 jobs:
   release:
@@ -58,12 +57,15 @@ jobs:
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # The changesets action pushes changeset-release/main with GITHUB_TOKEN,
-      # whose events never trigger other workflows (recursion guard) — so the
-      # Version PR's required checks would sit "expected" forever. The guard
-      # exempts workflow_dispatch: kick CI at the branch explicitly.
-      - name: Trigger CI on the Version PR
-        if: steps.changesets.outputs.hasChangesets == 'true'
-        run: gh workflow run ci.yml --ref changeset-release/main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # KNOWN LIMITATION — the Version PR opens without its required checks:
+      # the changesets action pushes with GITHUB_TOKEN, whose events never
+      # trigger workflows (GitHub's recursion guard). A workflow_dispatch'd
+      # CI run was tried and rejected: its check suite lands on the commit
+      # but GitHub does not associate workflow_dispatch suites with PRs, so
+      # the merge gate ignores it. The two real options:
+      #   1. (recommended) a fine-grained PAT (contents + pull-requests:
+      #      write, this repo only) as a RELEASE_TOKEN secret, passed to the
+      #      changesets step's GITHUB_TOKEN env — its pushes trigger CI
+      #      normally;
+      #   2. one manual nudge per release: close + reopen the Version PR
+      #      (any real user's event re-triggers CI).
