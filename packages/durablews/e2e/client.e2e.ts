@@ -239,3 +239,40 @@ test("outbound middleware stamps messages before they reach the wire", async ({
         { body: "two", token: "tok-123" }
     ]);
 });
+
+test("compat: the drop-in WebSocket survives a server drop", async ({
+    page
+}) => {
+    await page.goto("/e2e/app.html");
+
+    const result = await page.evaluate(async (wsUrl) => {
+        const { WebSocket: DWS } = await import("/dist/compat.js");
+        const ws = new DWS(wsUrl, undefined, {
+            reconnect: { baseDelay: 50, jitter: false }
+        });
+        const echoed: unknown[] = [];
+        ws.onmessage = (event: MessageEvent) => echoed.push(event.data);
+        await new Promise<void>((resolve) =>
+            ws.addEventListener("open", () => resolve(), { once: true })
+        );
+        const openState = ws.readyState;
+
+        ws.send("raw-one");
+        await new Promise((r) => setTimeout(r, 200));
+        ws.send("drop"); // the server closes this connection (code 1012)
+        await new Promise((r) => setTimeout(r, 600));
+        const recovered = ws.readyState;
+
+        ws.send("raw-two");
+        await new Promise((r) => setTimeout(r, 200));
+        ws.close();
+
+        return { openState, recovered, echoed };
+    }, `ws://localhost:${server.port}`);
+
+    expect(result.openState).toBe(1); // OPEN
+    expect(result.recovered).toBe(1); // OPEN again, post-reconnect
+    // Wire-faithful echoes: raw strings, no JSON wrapping.
+    expect(result.echoed).toContain("raw-one");
+    expect(result.echoed).toContain("raw-two");
+});

@@ -142,6 +142,10 @@ bypass outbound middleware entirely.
   a [React hook](/frameworks/react/) (`durablews/vue`, `durablews/react`) with
   reactive connection state and automatic cleanup; the frameworks are optional
   peers, so core installs never warn
+- **A drop-in `WebSocket` class** —
+  [`durablews/compat`](/guides/compat/): swap it in where a socket goes (or
+  inject it as a library's `webSocketImpl`) and get the durable core
+  underneath, with a published known-deviations table
 
 :::note[`connect()` and unlimited retries]
 `connect()` resolves on the first successful open — including when that open is
@@ -153,7 +157,6 @@ it: `Promise.race([client.connect(), timeout(10_000)])`.
 
 ## On the roadmap
 
-A drop-in `WebSocket`-compatible compat class, expanded guides and an API
-reference, and channels — see the
+Runnable examples, cross-runtime e2e proof (Deno/Bun), and channels — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

@@ -91,6 +91,12 @@ export interface WebSocketClientConfig {
     readonly url: string | URL;
     /** Optional subprotocol(s) passed to the underlying `WebSocket`. */
     readonly protocols?: string | string[];
+    /**
+     * `binaryType` applied to the underlying socket on every (re)connect:
+     * `"arraybuffer"` delivers binary frames as `ArrayBuffer` instead of the
+     * browser default `Blob`.
+     */
+    readonly binaryType?: BinaryType;
     /** Wire-format codec. Defaults to JSON (`jsonCodec`). */
     readonly codec?: Codec;
     /**

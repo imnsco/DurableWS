@@ -625,17 +625,22 @@ stops moving; release is last.
   providers, production miles), and **`llms.txt`** (hand-written, in
   `docs/public/`) for AI-assistant discovery. Also corrects §2.1's false
   "partysocket does not queue" claim (see the correction note there).
-- ⬜ **Slice 5 — `durablews/compat` (decision: build, with scoped fidelity).**
-  A drop-in `WebSocket`-shaped class over core for two documented audiences:
-  app-code one-line migration (the `reconnecting-websocket`/`partysocket`
-  crowd) and **`webSocketImpl`-style injection points** in existing libraries
-  (graphql-ws, y-websocket, realtime SDKs) — durability injected into whole
-  ecosystems that never learn durablews exists. Fidelity is deliberately
-  scoped to those two use cases with a published "known deviations" table
-  (e.g. `readyState` re-entering `CONNECTING` across reconnects, which the
-  spec's one-shot lifecycle forbids) — no quixotic spec-perfection, since a
-  subtly unfaithful impostor is worse than a documented one. Migration docs
-  page included.
+- ✅ **Slice 5 — `durablews/compat` (decision: build, with scoped fidelity).**
+  `DurableWebSocket` (also exported as `WebSocket`) — an `EventTarget`-based,
+  `WebSocket`-shaped class over core for the two documented audiences:
+  app-code one-line migration and **`webSocketImpl`-style injection**
+  (graphql-ws, y-websocket examples in the docs). Wire-faithful by
+  construction (identity codec — no JSON); Level0 (`onopen`/…) + Level2
+  (`addEventListener`) event styles; constructor third arg takes the
+  durablews config; the full client is exposed as `.client` (escape hatch to
+  `drop`/`reconnecting`/middleware). The **known-deviations table** lives on
+  the docs page (readyState re-enters `CONNECTING` across reconnects;
+  send-while-connecting queues; `protocol`/`extensions`/`bufferedAmount`
+  stubs; post-construction `binaryType` emulated via order-preserving Blob
+  conversion with a `FileReader` fallback for jsdom). Core gained one small
+  option in support: `binaryType`, applied to the socket on every
+  (re)connect — generally useful for binary protocols, not compat-specific.
+  E2e: the compat class survives a server drop in real Chromium.
 - ⬜ **Slice 6 — Cross-runtime e2e + distribution assets.** Node-as-client +
   Deno/Bun e2e (closing §6's claim); size-limit budget enforced in CI + badge;
   runnable `examples/`.
@@ -657,6 +662,17 @@ stops moving; release is last.
   `error`/`statechange`). Option names refined as each seam lands.
 - Whether channels are the only plugin-shaped feature (which would let us drop
   the umbrella "plugin" concept from the public vocabulary).
+- **AsyncAPI / OpenAPI integration (v2.x idea — recorded 2026-06-09, not
+  scheduled).** OpenAPI itself cannot describe WebSocket message flows — it
+  is an HTTP request/response spec; the async-world equivalent is
+  **AsyncAPI**, which has first-class WebSocket bindings (channels, message
+  schemas). Core already has the right seams and needs nothing added:
+  `schema` accepts any Standard Schema, so an AsyncAPI document's message
+  schemas (JSON Schema) can validate inbound traffic today through a
+  json-schema→Standard-Schema adapter. The product-shaped idea is
+  **codegen** — a `durablews-asyncapi` tool that generates a typed client
+  (channel definitions, message unions, validators) from an AsyncAPI
+  document. Post-2.0 growth item, alongside the socket.io codec.
 - ~~`connect()` can never settle under default config.~~ **Settled in M3
   slice 1: pending-forever is by design.** Under `maxRetries: Infinity` the
   client is *still working* — a rejection would be a lie, and a built-in

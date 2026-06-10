@@ -343,6 +343,9 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         socket = config.protocols
             ? new WebSocket(config.url, config.protocols)
             : new WebSocket(config.url);
+        if (config.binaryType) {
+            socket.binaryType = config.binaryType;
+        }
 
         socket.onopen = () => {
             retryAttempt = 0;
