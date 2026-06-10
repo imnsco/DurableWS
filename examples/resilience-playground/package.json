@@ -1,0 +1,19 @@
+{
+    "name": "example-resilience-playground",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "node server.mjs & vite",
+        "dev:server": "node server.mjs",
+        "build": "vite build"
+    },
+    "dependencies": {
+        "durablews": "workspace:*"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3",
+        "vite": "^6.3.5",
+        "ws": "^8.21.0"
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "name": "example-chat",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev:server": "node server.mjs",
+        "dev:vue": "vite vue --port 5174",
+        "dev:react": "vite react --port 5175",
+        "build": "vite build vue && vite build react"
+    },
+    "dependencies": {
+        "durablews": "workspace:*",
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7",
+        "vue": "^3.5.35",
+        "zod": "^3.25.0"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.3",
+        "@vitejs/plugin-react": "^4.7.0",
+        "@vitejs/plugin-vue": "^5.2.4",
+        "typescript": "^5.9.3",
+        "vite": "^6.3.5",
+        "ws": "^8.21.0"
+    }
+}

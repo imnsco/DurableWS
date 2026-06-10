@@ -63,7 +63,8 @@
         "typecheck": "tsc --noEmit",
         "typecheck:next": "pnpm --package=typescript@next dlx tsc --noEmit",
         "check:publish": "publint && attw --pack . --profile node16",
-        "prepublishOnly": "pnpm build"
+        "prepublishOnly": "pnpm build",
+        "size": "size-limit"
     },
     "author": "Nate Smith (https://imns.co/)",
     "license": "MPL-2.0",
@@ -115,6 +116,7 @@
     "devDependencies": {
         "@arethetypeswrong/cli": "^0.18.3",
         "@playwright/test": "^1.60.0",
+        "@size-limit/preset-small-lib": "^12.1.0",
         "@testing-library/react": "^16.3.2",
         "@types/node": "^22.19.20",
         "@types/react": "^19.2.17",
@@ -124,11 +126,44 @@
         "publint": "^0.3.21",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
+        "size-limit": "^12.1.0",
         "tsup": "^8.5.1",
         "typescript": "^5.3.3",
         "vitest": "^1.2.2",
         "vitest-websocket-mock": "^0.3.0",
         "vue": "^3.5.35",
         "ws": "^8.21.0"
-    }
+    },
+    "size-limit": [
+        {
+            "name": "core (durablews)",
+            "path": "dist/index.js",
+            "limit": "3 KB",
+            "brotli": true
+        },
+        {
+            "name": "durablews/vue",
+            "path": "dist/vue.js",
+            "limit": "3.5 KB",
+            "brotli": true,
+            "ignore": [
+                "vue"
+            ]
+        },
+        {
+            "name": "durablews/react",
+            "path": "dist/react.js",
+            "limit": "3.5 KB",
+            "brotli": true,
+            "ignore": [
+                "react"
+            ]
+        },
+        {
+            "name": "durablews/compat",
+            "path": "dist/compat.js",
+            "limit": "4 KB",
+            "brotli": true
+        }
+    ]
 }

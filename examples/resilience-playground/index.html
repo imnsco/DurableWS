@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>DurableWS — resilience playground</title>
+        <style>
+            body { font-family: ui-monospace, monospace; max-width: 760px; margin: 2rem auto; padding: 0 1rem; background: #0e1117; color: #e6edf3; }
+            h1 { font-size: 1.2rem; }
+            .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin: 0.75rem 0; }
+            .badge { padding: 0.25rem 0.75rem; border-radius: 999px; font-weight: bold; }
+            .badge[data-state="open"] { background: #1f6e3b; }
+            .badge[data-state="connecting"], .badge[data-state="reconnecting"] { background: #8a6d00; }
+            .badge[data-state="closed"], .badge[data-state="closing"], .badge[data-state="idle"] { background: #6e1f1f; }
+            .gauge { opacity: 0.85; }
+            button { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 0.4rem 0.8rem; cursor: pointer; }
+            button:hover { background: #30363d; }
+            #log { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.75rem; height: 320px; overflow-y: auto; font-size: 0.8rem; white-space: pre-wrap; }
+            .hint { opacity: 0.6; font-size: 0.85rem; }
+        </style>
+    </head>
+    <body>
+        <h1>DurableWS resilience playground</h1>
+        <p class="hint">
+            Your job: break the connection. Its job: survive you. Watch the
+            state machine, the retry counter, and the queue do their thing.
+        </p>
+        <div class="row">
+            <span id="state" class="badge" data-state="idle">idle</span>
+            <span class="gauge">retries: <b id="retries">0</b></span>
+            <span class="gauge">queued: <b id="queued">0</b></span>
+        </div>
+        <div class="row">
+            <button type="button" id="drop">💣 Drop the connection</button>
+            <button type="button" id="mute">🔇 Mute the server 6s (heartbeat)</button>
+            <button type="button" id="burst">📬 Send 5 while it's down</button>
+            <button type="button" id="send">Send one message</button>
+            <button type="button" id="close">Close</button>
+            <button type="button" id="connect">Connect</button>
+        </div>
+        <div id="log"></div>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>
