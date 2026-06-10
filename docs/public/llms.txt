@@ -1,0 +1,39 @@
+# DurableWS
+
+> A resilient, zero-dependency WebSocket client for TypeScript — durable by
+> default. Automatic reconnection (full-jitter exponential backoff), bounded
+> message queueing with observable drops, opt-in heartbeat/idle detection,
+> typed + Standard-Schema-validated messages, middleware in both directions
+> (auth-ready), a pluggable codec, and Vue/React bindings in the box. Built on
+> the standard global WebSocket: browsers, Node >= 22, Deno, Bun, edge.
+
+Install: `npm install durablews@alpha` (v2 is in alpha; the 1.x release on npm
+predates the rewrite and should not be used).
+
+Quick start:
+
+```ts
+import { defineClient } from "durablews";
+
+const client = defineClient({ url: "wss://example.com/socket" });
+client.on("message", (msg) => console.log(msg));
+await client.connect();
+client.send({ type: "hello" });
+```
+
+## Docs
+
+- [Getting started](https://durablews.imns.co/getting-started/): install, quick start, typed messages, what works today
+- [API reference](https://durablews.imns.co/reference/api/): every export, config option, client member, and event
+- [Durability tuning](https://durablews.imns.co/guides/durability/): reconnection, queueing, and heartbeat — defaults and every knob
+- [Middleware](https://durablews.imns.co/guides/middleware/): inbound and outbound interception, auth/token refresh, ordering semantics
+- [Codecs](https://durablews.imns.co/guides/codecs/): the wire-format seam; JSON default, custom codecs
+- [Vue](https://durablews.imns.co/frameworks/vue/): the useWebSocket composable (durablews/vue)
+- [React](https://durablews.imns.co/frameworks/react/): the useWebSocket hook (durablews/react)
+- [Why DurableWS?](https://durablews.imns.co/comparison/): honest comparison vs partysocket, reconnecting-websocket, socket.io
+- [Migrating from v1](https://durablews.imns.co/guides/migrating-from-v1/): the v2 breaking changes
+
+## Optional
+
+- [Architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md): the v2 design document and live implementation tracker
+- [GitHub](https://github.com/imnsco/DurableWS): source, issues, contributing
