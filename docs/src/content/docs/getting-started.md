@@ -157,6 +157,6 @@ it: `Promise.race([client.connect(), timeout(10_000)])`.
 
 ## On the roadmap
 
-Runnable examples, cross-runtime e2e proof (Deno/Bun), and channels — see the
+Channels are the headline of v2.x — see the
 [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
 for the full plan and status.

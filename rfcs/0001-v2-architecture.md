@@ -660,9 +660,16 @@ stops moving; release is last.
   **layering rule is now documented in the compat guide** ("one reconnector
   per stack", with a `reconnect: false` wrapper recipe), and the example
   demonstrates compat where it genuinely owns durability: plain-pipe code.
-- ⬜ **Slice 7 — 2.0 release.** Changesets-automated npm publish of
-  `durablews@2.0.0`; launch post ("we fixed reconnection properly: full
-  jitter, bounded queues, an FSM").
+- 🚧 **Slice 7 — 2.0 release.** Prepared, one merge from done: pre mode
+  exited, the 2.0.0 graduation changeset written (version math verified:
+  `2.0.0`), private workspace packages excluded from changesets versioning,
+  and the launch post drafted at `posts/durablews-2.0-launch.md`
+  (**pending maintainer review** — publish it alongside the release).
+  **Merging the auto-opened Version Packages PR publishes
+  `durablews@2.0.0` to `latest`** via OIDC trusted publishing — that merge
+  is the deliberate human step, left to the maintainer (alpha.1 shipped
+  the same night; whether to let it bake first is a judgment call the
+  maintainer should make awake).
 
 ## 9. Open questions
 
