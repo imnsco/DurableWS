@@ -673,6 +673,19 @@ stops moving; release is last.
   **codegen** — a `durablews-asyncapi` tool that generates a typed client
   (channel definitions, message unions, validators) from an AsyncAPI
   document. Post-2.0 growth item, alongside the socket.io codec.
+- **OpenTelemetry (v2.x idea — recorded 2026-06-10, not scheduled).** Core
+  needs nothing: the existing seams already expose every signal an
+  instrumentation wants — middleware (both directions) for message
+  spans/counts, `subscribe()`/`getState()` for state and queue-depth
+  metrics, and the event vocabulary (`reconnecting`, `drop`, `error`,
+  close code 4408) for the durability story. The product-shaped version is
+  a small `durablews/otel` subpath (a middleware + subscriber pack over
+  `@opentelemetry/api` as an optional peer, like the framework bindings).
+  Honest caveats before scheduling it: OTel has **no stable semantic
+  conventions for WebSockets** (we'd be inventing attribute names), and
+  browser-side OTel adoption is thin — the audience is Node/edge
+  service-to-service clients, real but a minority. Decide on demand;
+  userland can build it today against the public seams.
 - ~~`connect()` can never settle under default config.~~ **Settled in M3
   slice 1: pending-forever is by design.** Under `maxRetries: Infinity` the
   client is *still working* — a rejection would be a lie, and a built-in
