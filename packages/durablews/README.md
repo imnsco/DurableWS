@@ -1,44 +1,48 @@
 # DurableWS
 
-> A resilient, modern, zero-dependency WebSocket **client** for TypeScript — built on the standard `WebSocket`, durable by default, and the same in every modern runtime.
+> The WebSocket client that survives the real world — automatic reconnection,
+> bounded queueing, and typed messages. Zero dependencies, every modern
+> runtime, durable by default.
 
-> ⚠️ **v2 is under active development (`2.0.0-alpha`).** The API is changing and several headline features below are still being built. See the [v2 architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md) for the design and live status. The current npm release (`1.x`) predates this redesign.
+> ⚠️ **v2 is in alpha** (`npm install durablews@alpha`). The features below
+> are built and tested (unit, integration, real-browser e2e); the API may
+> still shift before 2.0. The
+> [architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
+> tracks design and status. The `1.x` release predates this rewrite — don't
+> use it.
 
-DurableWS aims to be "the Hono of WebSockets": tiny, ergonomic, Web-Standards-based, and **durable by default** — automatic reconnection, message queueing, and idle detection out of the box — with a middleware + codec pipeline for extensibility (custom wire formats, auth, a socket.io-compatibility layer, and more).
+## What you get
 
-## Status
-
-DurableWS v2 is being built in the open. To be accurate about what exists today vs. what's planned:
-
-**Working now**
-
-- Connect / send / close and incoming-message handling over the standard `WebSocket`
-- Event subscriptions (`on` / `off`)
-- A middleware pipeline (`use`)
-- Built-in JSON-safe message parsing and a ping/pong middleware
-
-**Planned for v2 (not yet implemented)**
-
-- Automatic reconnection with exponential backoff
-- Message queueing while disconnected, flushed on reconnect
-- Idle detection
-- A typed connection state machine
-- Pluggable codecs (msgpack, socket.io framing, …) and an authentication helper
-- Channels / subscriptions
-
-Until these land, treat the durability features as a roadmap, not a guarantee.
+- **Automatic reconnection, on by default** — full-jitter exponential
+  backoff, unlimited retries, a `shouldReconnect` veto, and `reconnecting`
+  events for your UI.
+- **Message queueing while disconnected, on by default** — bounded,
+  drop-oldest, flushed in order on open. Every dropped message fires a `drop`
+  event; nothing is silently lost.
+- **Opt-in heartbeat / idle detection** — quietly-dead links are closed (code
+  `4408`) and recovered through the normal reconnect machinery.
+- **Typed + validated messages** — pass any
+  [Standard Schema](https://standardschema.dev) (zod, valibot, arktype, …)
+  and inbound messages are type-inferred *and* runtime-validated.
+- **Middleware, inbound and outbound** — an onion pipeline with async-safe,
+  ordered outbound execution (auth/token-refresh ready).
+- **Pluggable codec** — JSON by default; swap in msgpack or anything else.
+- **Vue & React bindings in the box** — `durablews/vue` (composable) and
+  `durablews/react` (hook); the frameworks are optional peers.
+- **A drop-in `WebSocket` class** — `durablews/compat` for one-line migration
+  or `webSocketImpl` injection, with a published known-deviations table.
+- **Zero runtime dependencies**, built on the standard global `WebSocket`.
 
 ## Requirements
 
-DurableWS targets the **standard global `WebSocket`** and ships **zero runtime dependencies**. That means:
-
-- **Node.js ≥ 22** — the first release where the global `WebSocket` is available unflagged. (There is no `ws` dependency, by design.)
-- Any modern runtime with a global `WebSocket`: current browsers, Deno, Bun, and Cloudflare Workers.
+- **Node.js ≥ 22** — the first release where the global `WebSocket` is
+  available unflagged. (There is no `ws` dependency, by design.)
+- Any modern runtime with a global `WebSocket`: current browsers, Deno, Bun,
+  and Cloudflare Workers.
 
 ## Installation
 
 ```bash
-# v2 is not yet published; once the alpha ships it will be:
 npm install durablews@alpha
 ```
 
@@ -60,10 +64,24 @@ client.send({ type: "hello", message: "world" });
 client.close();
 ```
 
+Typed and validated, with any Standard Schema:
+
+```ts
+import { z } from "zod";
+
+const Message = z.object({ type: z.string(), body: z.string() });
+const client = defineClient({ url, schema: Message });
+
+client.on("message", (msg) => {
+    // msg: { type: string; body: string } — validated at runtime
+});
+```
+
 ## Documentation
 
-- [v2 architecture RFC](https://github.com/imnsco/DurableWS/blob/main/rfcs/0001-v2-architecture.md)
-- A full documentation site (Astro + Starlight) is coming as part of v2.
+**[durablews.imns.co](https://durablews.imns.co)** — getting started, guides
+(durability tuning, middleware, codecs, drop-in compat), framework pages, the
+API reference, and an honest comparison with the alternatives.
 
 ## Contributing
 
