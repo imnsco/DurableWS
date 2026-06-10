@@ -2,7 +2,7 @@
 
 Thanks for your interest in contributing! DurableWS is being built in the open, and contributions — issues, docs, fixes, features — are welcome.
 
-> **Heads up:** v2 is under active redesign. Before starting non-trivial work, please read [RFC 0001](rfcs/0001-v2-architecture.md) (the architecture and live status) and open an issue to discuss, so effort isn't spent on something the redesign changes.
+> **Where things stand:** v2 has shipped (`durablews@2.0.0`). [ROADMAP.md](ROADMAP.md) is the live plan; [RFC 0001](rfcs/0001-v2-architecture.md) records the architecture and why it is the way it is. Before starting non-trivial work, see [Proposing changes](#proposing-changes).
 
 ## Prerequisites
 
@@ -48,6 +48,14 @@ pnpm changeset
 ```
 
 Pick the appropriate semver bump and write a short, user-facing summary. Tooling-only or docs-only changes that don't affect consumers don't need one.
+
+## Proposing changes
+
+Match the weight of the process to the weight of the change:
+
+- **Bug fixes and small improvements** — open a PR directly.
+- **Features** — open an issue first, so the approach is agreed before code is written. Scheduled work lives in [ROADMAP.md](ROADMAP.md).
+- **Architecture-level changes** — public API shape, packaging/exports, protocol semantics; anything expensive to reverse — start an RFC. The process is one page: [rfcs/README.md](rfcs/README.md).
 
 ## Pull requests
 

@@ -1,9 +1,14 @@
 # RFC 0001 — DurableWS v2 Architecture
 
-- **Status:** Draft
+- **Status:** Implemented (shipped as `durablews@2.0.0`, 2026-06-10)
 - **Author:** Nate Smith
 - **Created:** 2026-06-08
 - **Supersedes:** the v1.x design (published as `durablews@1.0.1`)
+
+> **This RFC is frozen.** It is the record of the v2 design and its
+> implementation (milestones M1–M4). Ongoing planning lives in
+> [ROADMAP.md](../ROADMAP.md); future architecture-level changes get a new
+> RFC — see [rfcs/README.md](README.md) for the process.
 
 ---
 
