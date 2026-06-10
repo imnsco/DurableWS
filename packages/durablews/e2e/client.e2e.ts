@@ -201,3 +201,41 @@ test("heartbeat detects a silent link and recovers through reconnect", async ({
     expect(result.recovered).toBe("open");
     expect(result.echoed).toContain("alive-again");
 });
+
+test("outbound middleware stamps messages before they reach the wire", async ({
+    page
+}) => {
+    await page.goto("/e2e/app.html");
+
+    const result = await page.evaluate(async (wsUrl) => {
+        const { defineClient } = await import("/dist/index.js");
+        const ws = defineClient({ url: wsUrl });
+        ws.use({
+            outbound: async (
+                ctx: { data: unknown },
+                next: () => Promise<void> | undefined
+            ) => {
+                // Async on purpose: prove ordered async against a real socket.
+                await new Promise((r) => setTimeout(r, 20));
+                ctx.data = { body: ctx.data, token: "tok-123" };
+                await next();
+            }
+        });
+        const echoed: unknown[] = [];
+        ws.on("message", (m: unknown) => echoed.push(m));
+
+        await ws.connect();
+        ws.send("one");
+        ws.send("two");
+        await new Promise((r) => setTimeout(r, 400));
+        ws.close();
+
+        return { echoed };
+    }, `ws://localhost:${server.port}`);
+
+    // The echo server reflects what actually hit the wire: stamped, in order.
+    expect(result.echoed).toEqual([
+        { body: "one", token: "tok-123" },
+        { body: "two", token: "tok-123" }
+    ]);
+});

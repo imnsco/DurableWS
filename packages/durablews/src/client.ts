@@ -11,7 +11,9 @@ import type {
     ClientState,
     ConnectionEvent,
     ConnectionState,
+    DirectionalMiddleware,
     Middleware,
+    OutboundMiddleware,
     WebSocketClient,
     WebSocketClientConfig
 } from "@/types";
@@ -47,6 +49,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     const queue = resolveQueue(config.queue);
     const heartbeat = resolveHeartbeat(config.heartbeat);
     const middlewares: Middleware[] = [];
+    const outboundMiddlewares: OutboundMiddleware[] = [];
 
     // Outbound messages awaiting an open socket, in send() order. Original
     // (un-encoded) values: encoding happens at flush, so a drop event can hand
@@ -62,6 +65,15 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     let lastInboundAt = 0;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     let heartbeatDeadline: ReturnType<typeof setTimeout> | null = null;
+
+    // The serialized outbound path (in play only when outbound middleware is
+    // registered). `outboundTail` is the tail of the in-flight chain: while
+    // set, every new message chains behind it, so socket writes keep send()
+    // order even when a middleware awaits. `requeueIndex` keeps messages that
+    // were mid-pipeline when the connection dropped ahead of newer queued
+    // sends; it resets on every socket close.
+    let outboundTail: Promise<void> | null = null;
+    let requeueIndex = 0;
 
     // True between a user close() and the next connect(); suppresses
     // reconnection so "the user hung up" is never retried.
@@ -187,19 +199,108 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     }
 
     /**
+     * Final stage of the outbound pipeline: encode the (possibly transformed)
+     * message and write it to the socket. The connection may have changed
+     * while middleware awaited, so re-check here: if a retry is underway, the
+     * *original* value is re-queued ahead of newer sends (middleware re-runs
+     * at the next transmission, keeping e.g. tokens fresh); on a dead-end
+     * state it surfaces as a `drop` — never silently lost.
+     */
+    function wire(transformed: unknown, original: unknown) {
+        if (socket && state === "open") {
+            socket.send(codec.encode(transformed));
+            return;
+        }
+        if (
+            queue !== null &&
+            (state === "connecting" || state === "reconnecting")
+        ) {
+            if (queued.length >= queue.maxSize) {
+                bus.emit("drop", {
+                    data: queued.shift(),
+                    reason: "overflow"
+                });
+                if (requeueIndex > 0) {
+                    requeueIndex -= 1;
+                }
+            }
+            queued.splice(requeueIndex, 0, original);
+            requeueIndex += 1;
+            notify();
+            return;
+        }
+        bus.emit("drop", { data: original, reason: "close" });
+    }
+
+    /**
+     * Runs one message through the outbound middleware chain. Errors are
+     * per-message: a throw/rejection surfaces as `error` and only this
+     * message is skipped.
+     */
+    function runOutbound(data: unknown): void | Promise<void> {
+        const ctx = { data, client: api };
+        try {
+            const result = runPipeline(outboundMiddlewares, ctx, () => {
+                wire(ctx.data, data);
+            });
+            if (result instanceof Promise) {
+                return result.catch((error: unknown) => {
+                    bus.emit("error", toError(error));
+                });
+            }
+        } catch (error) {
+            bus.emit("error", toError(error));
+        }
+    }
+
+    /**
+     * Sends a message through the outbound middleware pipeline, preserving
+     * send() order: while any message is in flight (async middleware), newer
+     * messages chain behind it. With no middleware in flight and an all-sync
+     * chain, the path stays fully synchronous.
+     */
+    function transmit(data: unknown) {
+        if (outboundTail === null) {
+            const result = runOutbound(data);
+            if (result instanceof Promise) {
+                setOutboundTail(result);
+            }
+            return;
+        }
+        setOutboundTail(outboundTail.then(() => runOutbound(data)));
+    }
+
+    function setOutboundTail(run: Promise<void>) {
+        const tail = run.then(() => {
+            // Chain drained: restore the synchronous fast path.
+            if (outboundTail === tail) {
+                outboundTail = null;
+            }
+        });
+        outboundTail = tail;
+    }
+
+    /**
      * Sends every queued message in order. Called once the socket opens,
      * *before* the `open` event, so the backlog (sent earlier in time)
-     * precedes anything an `open` handler sends. A per-message encode/send
-     * failure surfaces as an `error` event and flushing continues.
+     * precedes anything an `open` handler sends — under async outbound
+     * middleware "precedes" means pipeline order; socket writes follow it.
+     * A per-message encode/send failure surfaces as an `error` event and
+     * flushing continues.
      */
     function flushQueue() {
         const hadQueued = queued.length > 0;
+        requeueIndex = 0;
         while (queued.length > 0 && socket && state === "open") {
             const data = queued.shift();
-            try {
-                socket.send(codec.encode(data));
-            } catch (error) {
-                bus.emit("error", toError(error));
+            if (outboundMiddlewares.length === 0) {
+                try {
+                    socket.send(codec.encode(data));
+                } catch (error) {
+                    bus.emit("error", toError(error));
+                }
+            } else {
+                transmit(data);
             }
         }
         if (hadQueued) {
@@ -267,6 +368,9 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             const wasConnecting = state === "connecting";
             socket = null;
             stopHeartbeat();
+            // A new disconnected period begins: in-flight outbound messages
+            // re-queue from the front (see wire()).
+            requeueIndex = 0;
 
             if (reconnect !== null && isRetryable(event)) {
                 // Event order is deliberate: statechange (state already moved
@@ -426,7 +530,13 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
 
         send(data: unknown) {
             if (socket && state === "open") {
-                socket.send(codec.encode(data));
+                if (outboundMiddlewares.length === 0) {
+                    // No outbound middleware: today's direct path, including
+                    // synchronous encode errors thrown to the caller.
+                    socket.send(codec.encode(data));
+                } else {
+                    transmit(data);
+                }
                 return;
             }
             // An open is coming (or being retried): queue, bounded drop-oldest.
@@ -485,8 +595,17 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             return () => bus.off(event, handler);
         },
 
-        use(middleware: Middleware) {
-            middlewares.push(middleware);
+        use(middleware: Middleware | DirectionalMiddleware) {
+            if (typeof middleware === "function") {
+                middlewares.push(middleware);
+                return api;
+            }
+            if (middleware.inbound) {
+                middlewares.push(middleware.inbound);
+            }
+            if (middleware.outbound) {
+                outboundMiddlewares.push(middleware.outbound);
+            }
             return api;
         },
 

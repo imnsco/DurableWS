@@ -66,6 +66,20 @@ describe("typed messages (compile-time)", () => {
         });
     });
 
+    it("types outbound middleware context with the outbound type", () => {
+        const ws = defineClient<Chat, string>({ url: URL });
+        ws.use({
+            inbound: (ctx, next) => {
+                expectTypeOf(ctx.data).toEqualTypeOf<Chat>();
+                return next();
+            },
+            outbound: (ctx, next) => {
+                expectTypeOf(ctx.data).toEqualTypeOf<string>();
+                return next();
+            }
+        });
+    });
+
     it("lifecycle events keep their fixed payload types", () => {
         const ws = defineClient({ url: URL, schema: chatSchema });
         ws.on("close", (event) => {
