@@ -28,7 +28,7 @@ jobs:
     # "Disable workflow".
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # The changesets action pushes through git, which uses the
           # credentials checkout persists — not the action's env token. The
@@ -36,13 +36,14 @@ jobs:
           # real-user event (which is what makes its CI checks run).
           token: ${{ secrets.RELEASE_TOKEN }}
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
-      # Trusted publishing requires npm >= 11.5.1; Node 22 bundles npm 10.
+      # Trusted publishing requires npm >= 11.5.1; pin latest rather than
+      # trusting whatever the Node image bundles.
       # No registry-url/.npmrc token setup: with no token present, npm
       # authenticates via the runner's OIDC token and attaches provenance
       # automatically.
