@@ -211,13 +211,27 @@ receive a message and forget it; nothing is retained in state. Typed:
 const off = client.on<ChatMessage>("message", (msg) => { /* ... */ });
 ```
 
-### 4.6 Plugins — the only thing that adds new client API
+### 4.6 Extension vocabulary — one word per seam
 
-Most add-ons are **middleware** or **codecs**, named by their seam. The one
-category that is neither — things that add *new client methods* (e.g.
-`client.channel("room")`, presence) — are **plugins**. (If channels turn out to
-be the only such case we may simply call it "the channels API"; the plugin
-concept exists for when third parties need the same capability.)
+Every extension concept is **named by the seam it occupies**, and that word is
+used consistently across code, docs, and this RFC:
+
+| Term | What it is | Registered via | Adds client API? |
+| --- | --- | --- | --- |
+| **Middleware** | Intercepts messages on the pipeline — inbound and/or outbound, same word for both directions | `client.use(...)` | Never |
+| **Codec** | Translates the wire format | `codec` config option | Never |
+| **Plugin** | Adds new client capability (channels, presence) | TBD (M4+) | Yes — the only one |
+| **Binding** | Adapts the client to a framework's reactivity | subpath import (`durablews/vue`, `durablews/react`) | n/a — framework surface, not client surface |
+
+**Plugins** are the one category that adds *new client methods* (e.g.
+`client.channel("room")`, presence). (If channels turn out to be the only such
+case we may simply call it "the channels API"; the plugin concept exists for
+when third parties need the same capability.)
+
+**Bindings** are the neutral, cross-framework word (used in this RFC and in
+comparison contexts); each framework's docs speak its community's tongue — a
+Vue *composable*, a React *hook* (settled M4 decision). Those words name the
+*form* the binding takes in that framework, not a separate concept.
 
 The word "packs" is explicitly rejected.
 
@@ -684,4 +698,30 @@ stops moving; release is last.
     liveness, not app messages — an auth or logging middleware seeing
     synthetic pings would be surprising, and a middleware that drops or
     delays them would silently break dead-link detection.
+
+  Use-case grounding — async is required by the platform, not hypothetical:
+
+  - **Auth token refresh** — await the refresh endpoint, attach, send (the
+    driving case).
+  - **Payload signing / encryption** — WebCrypto (`crypto.subtle.sign` /
+    `.encrypt`) has *no synchronous API*; E2E-encrypted or HMAC-signed
+    messages require async middleware.
+  - **Compression** — `CompressionStream` is likewise async-only.
+  - **Pacing** — a semaphore/throttle that awaits a send slot, preserving
+    order.
+  - **Outbox journaling** — await an IndexedDB write before transmit, for
+    exactly-once-across-page-reloads semantics.
+
+  And one boundary stated honestly: ordered delivery implies **head-of-line
+  blocking** — a middleware that delays one message delays everything behind
+  it. That is *correct* for every case above (pacing means delaying the
+  stream; a token refresh blocking sends is what freshness requires) and
+  *wrong* for selective tricks like per-key debounce or batching, which
+  inherently want reordering. Those belong in app code in front of `send()`,
+  not in the pipeline — out-of-order delivery from a WebSocket client would
+  be a far worse surprise than the boundary. Routing decomposes the same
+  way: inbound routing (dispatch by message type) is inbound middleware
+  today and the channels plugin (§4.6) tomorrow; the outbound half is
+  enveloping — stamping topic/destination onto each frame — a plain sync
+  transform.
 ```
