@@ -7,8 +7,8 @@
 > (auth-ready), a pluggable codec, and Vue/React bindings in the box. Built on
 > the standard global WebSocket: browsers, Node >= 22, Deno, Bun, edge.
 
-Install: `npm install durablews@alpha` (v2 is in alpha; the 1.x release on npm
-predates the rewrite and should not be used).
+Install: `npm install durablews` (the 1.x release on npm predates the v2
+rewrite and should not be used).
 
 Quick start:
 

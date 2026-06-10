@@ -1,13 +1,13 @@
 # DurableWS
 
-[![npm](https://img.shields.io/npm/v/durablews/alpha?label=npm%40alpha)](https://www.npmjs.com/package/durablews)
+[![npm](https://img.shields.io/npm/v/durablews)](https://www.npmjs.com/package/durablews)
 [![CI](https://github.com/imnsco/DurableWS/actions/workflows/ci.yml/badge.svg)](https://github.com/imnsco/DurableWS/actions/workflows/ci.yml)
 [![bundle size](https://img.shields.io/badge/core-%E2%89%A4%203%20KB%20brotli%20(CI--enforced)-blue)](packages/durablews/package.json)
 [![license](https://img.shields.io/badge/license-MPL--2.0-green)](LICENSE)
 
 > The WebSocket client that survives the real world — automatic reconnection, bounded queueing, and typed messages. Zero dependencies, built on the standard `WebSocket`, the same in every modern runtime (browser, Node ≥22, Deno, Bun, edge).
 
-> ⚠️ **v2 is in alpha** (`npm install durablews@alpha`). See [RFC 0001](rfcs/0001-v2-architecture.md) for the architecture and a live status tracker, and **[durablews.imns.co](https://durablews.imns.co)** for the docs.
+> **v2.0 is out** — `npm install durablews`. See **[durablews.imns.co](https://durablews.imns.co)** for the docs, and [RFC 0001](rfcs/0001-v2-architecture.md) for the architecture and a live status tracker.
 
 The published library lives in **[`packages/durablews`](packages/durablews)** — see its [README](packages/durablews/README.md) for usage, the feature status, and requirements.
 
