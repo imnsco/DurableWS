@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Dispatched by the release workflow against changeset-release/main: pushes
+  # made with GITHUB_TOKEN never trigger pull_request workflows (GitHub's
+  # recursion guard), but workflow_dispatch is exempt — so the Version
+  # Packages PR gets its required checks this way.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
