@@ -451,7 +451,7 @@ travel in-PR):
 Order is deliberate: the codec defines what "decoded" means, so it precedes the
 middleware that operates on decoded messages.
 
-### M3 — Durability 🚧
+### M3 — Durability ✅
 
 Reconnection + exponential backoff, message queueing, idle detection. Each lands
 as its own slice with unit + integration + e2e coverage.
@@ -505,9 +505,16 @@ separate test/e2e slice.
   silently lossy. `queueLength` joins `getState()`; `send()` still throws in
   `idle`/`closing`/`closed` and (always) under `queue: false`. E2e: a message
   sent while the server is down flushes after the transparent reconnect.
-- ⬜ **Slice 3 — Idle detection / heartbeat.** Opt-in keepalive + liveness
-  timeout that forces a reconnect on a silent link. E2e: heartbeat-triggered
-  recovery.
+- ✅ **Slice 3 — Idle detection / heartbeat.** Opt-in
+  `heartbeat: { interval, message?, timeout? }` (`heartbeat.ts`; message
+  defaults to `"ping"`, timeout to the interval). While open: ping every
+  interval; *any* inbound frame counts as liveness; a silent deadline emits an
+  `error`, force-closes with app-reserved code **4408**
+  (`HEARTBEAT_TIMEOUT_CODE`, exported for `shouldReconnect` filtering), and the
+  close flows into the normal reconnect machinery (not user-initiated →
+  retryable). `lastError` widened to `Event | Error`. E2e: server goes silent
+  ("mute") → real Chromium detects the dead link via heartbeat and recovers on
+  a fresh connection.
 
 ### M4 — Adoption: docs, bindings, typed DX & 2.0 release ⬜
 

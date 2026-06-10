@@ -565,3 +565,124 @@ describe("outbound queue", () => {
         expect(c.getState().queueLength).toBe(0);
     });
 });
+
+describe("heartbeat", () => {
+    const HURL = "ws://localhost:1242";
+    let server: WS;
+
+    afterEach(() => {
+        WS.clean();
+    });
+
+    async function open(c: WebSocketClient) {
+        const opened = c.connect();
+        await server.connected;
+        await opened;
+    }
+
+    it("sends the heartbeat message every interval while open", async () => {
+        server = new WS(HURL);
+        const c = client({
+            url: HURL,
+            reconnect: false,
+            heartbeat: { interval: 25, timeout: 60_000 }
+        });
+        await open(c);
+
+        await expect(server).toReceiveMessage("ping");
+        await expect(server).toReceiveMessage("ping");
+        c.close();
+    });
+
+    it("encodes a custom heartbeat message through the codec", async () => {
+        server = new WS(HURL);
+        const c = client({
+            url: HURL,
+            reconnect: false,
+            heartbeat: {
+                interval: 25,
+                message: { type: "hb" },
+                timeout: 60_000
+            }
+        });
+        await open(c);
+
+        await expect(server).toReceiveMessage(JSON.stringify({ type: "hb" }));
+        c.close();
+    });
+
+    it("stays open while inbound traffic answers the pings", async () => {
+        server = new WS(HURL);
+        const c = client({
+            url: HURL,
+            reconnect: false,
+            heartbeat: { interval: 20, timeout: 40 }
+        });
+        await open(c);
+
+        // Answer each ping like a live server would.
+        server.on("message", () => server.send("pong"));
+
+        await new Promise((r) => setTimeout(r, 120));
+        expect(c.state).toBe("open");
+        c.close();
+    });
+
+    it("declares a silent link dead: error + close(4408) + reconnecting", async () => {
+        server = new WS(HURL);
+        const c = client({
+            url: HURL,
+            reconnect: { baseDelay: 60_000, jitter: false },
+            heartbeat: { interval: 20, timeout: 15 }
+        });
+        const errors = vi.fn();
+        const closes = vi.fn();
+        c.on("error", errors);
+        c.on("close", closes);
+        await open(c);
+
+        // Server never responds: the deadline after the first ping must fire.
+        await vi.waitFor(() => expect(c.state).toBe("reconnecting"), {
+            timeout: 2000
+        });
+
+        expect(errors).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: expect.stringMatching(/heartbeat timeout/i)
+            })
+        );
+        expect(closes).toHaveBeenCalledWith(
+            expect.objectContaining({ code: 4408 })
+        );
+        expect(c.getState().lastError).toBeInstanceOf(Error);
+        c.close();
+    });
+
+    it("does not ping when heartbeat is not configured", async () => {
+        server = new WS(HURL);
+        const c = client({ url: HURL, reconnect: false });
+        await open(c);
+
+        await new Promise((r) => setTimeout(r, 80));
+        expect(server.messages).toEqual([]);
+        c.close();
+    });
+
+    it("stops pinging after a user close()", async () => {
+        server = new WS(HURL);
+        const c = client({
+            url: HURL,
+            reconnect: false,
+            heartbeat: { interval: 20, timeout: 60_000 }
+        });
+        await open(c);
+        await expect(server).toReceiveMessage("ping");
+
+        c.close();
+        await server.closed;
+        const sentSoFar = server.messages.length;
+
+        await new Promise((r) => setTimeout(r, 60));
+        expect(server.messages.length).toBe(sentSoFar);
+    });
+});

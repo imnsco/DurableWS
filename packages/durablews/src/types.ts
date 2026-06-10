@@ -48,6 +48,28 @@ export interface ReconnectOptions {
 }
 
 /**
+ * Opt-in liveness checking. When configured, the client sends `message` every
+ * `interval` ms while open; if **no inbound frame of any kind** arrives within
+ * `timeout` ms of a ping, the link is declared dead and force-closed (code
+ * `4408`), which flows into the normal reconnect machinery.
+ *
+ * Requires a server that responds to the heartbeat message (or talks
+ * regularly for other reasons) — that app-level contract is why heartbeat is
+ * opt-in rather than on by default.
+ */
+export interface HeartbeatOptions {
+    /** Milliseconds between pings. */
+    readonly interval: number;
+    /** The ping payload, run through the codec. Default `"ping"`. */
+    readonly message?: unknown;
+    /**
+     * Milliseconds after a ping to wait for inbound traffic before declaring
+     * the link dead. Default: `interval`.
+     */
+    readonly timeout?: number;
+}
+
+/**
  * Tuning for the outbound message queue.
  */
 export interface QueueOptions {
@@ -80,6 +102,11 @@ export interface WebSocketClientConfig {
      * Pass `false` to make `send()` throw whenever the socket isn't open.
      */
     readonly queue?: false | QueueOptions;
+    /**
+     * Liveness checking — **opt-in** (off unless configured). See
+     * {@link HeartbeatOptions}.
+     */
+    readonly heartbeat?: HeartbeatOptions;
 }
 
 /**
@@ -123,8 +150,11 @@ export type ConnectionEvent =
 export interface ClientState {
     /** The current connection state. */
     readonly state: ConnectionState;
-    /** The most recent transport error, if any. */
-    readonly lastError: Event | null;
+    /**
+     * The most recent failure, if any: a transport error (`Event`) or a
+     * client-detected one like a heartbeat timeout (`Error`).
+     */
+    readonly lastError: Event | Error | null;
     /**
      * Retries used in the current disconnection episode. `0` while healthy;
      * resets on a successful open or a user `close()`.

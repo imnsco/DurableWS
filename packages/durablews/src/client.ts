@@ -1,6 +1,7 @@
 import { computeDelay, resolveReconnect } from "@/backoff";
 import { jsonCodec } from "@/codec";
 import { nextState } from "@/fsm";
+import { HEARTBEAT_TIMEOUT_CODE, resolveHeartbeat } from "@/heartbeat";
 import { defineEventBus } from "@/helpers/event-bus";
 import { runPipeline } from "@/pipeline";
 import { resolveQueue } from "@/queue";
@@ -43,6 +44,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
     const codec = config.codec ?? jsonCodec;
     const reconnect = resolveReconnect(config.reconnect);
     const queue = resolveQueue(config.queue);
+    const heartbeat = resolveHeartbeat(config.heartbeat);
     const middlewares: Middleware[] = [];
 
     // Outbound messages awaiting an open socket, in send() order. Original
@@ -52,7 +54,13 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
 
     let socket: WebSocket | null = null;
     let state: ConnectionState = "idle";
-    let lastError: Event | null = null;
+    let lastError: Event | Error | null = null;
+
+    // Heartbeat bookkeeping: when the last inbound frame (of any kind)
+    // arrived, the ping interval, and the per-ping liveness deadline.
+    let lastInboundAt = 0;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    let heartbeatDeadline: ReturnType<typeof setTimeout> | null = null;
 
     // True between a user close() and the next connect(); suppresses
     // reconnection so "the user hung up" is never retried.
@@ -106,6 +114,56 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         }
     }
 
+    function stopHeartbeat() {
+        if (heartbeatTimer !== null) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
+        if (heartbeatDeadline !== null) {
+            clearTimeout(heartbeatDeadline);
+            heartbeatDeadline = null;
+        }
+    }
+
+    /**
+     * While open, sends the heartbeat message every `interval` ms and arms a
+     * liveness deadline after each ping. Any inbound frame before the deadline
+     * proves the link; none means it's dead — force-close with code 4408,
+     * which flows into the normal reconnect machinery (the close is not
+     * user-initiated, so it is retryable).
+     */
+    function startHeartbeat() {
+        if (heartbeat === null) {
+            return;
+        }
+        stopHeartbeat();
+        heartbeatTimer = setInterval(() => {
+            if (state !== "open" || !socket) {
+                return;
+            }
+            const pingSentAt = Date.now();
+            try {
+                socket.send(codec.encode(heartbeat.message));
+            } catch (error) {
+                bus.emit("error", toError(error));
+            }
+            if (heartbeatDeadline !== null) {
+                clearTimeout(heartbeatDeadline);
+            }
+            heartbeatDeadline = setTimeout(() => {
+                heartbeatDeadline = null;
+                if (state === "open" && socket && lastInboundAt < pingSentAt) {
+                    const failure = new Error(
+                        `Heartbeat timeout: no inbound traffic within ${heartbeat.timeout}ms of a ping`
+                    );
+                    lastError = failure;
+                    bus.emit("error", failure);
+                    socket.close(HEARTBEAT_TIMEOUT_CODE, "heartbeat timeout");
+                }
+            }, heartbeat.timeout);
+        }, heartbeat.interval);
+    }
+
     /**
      * Sends every queued message in order. Called once the socket opens,
      * *before* the `open` event, so the backlog (sent earlier in time)
@@ -156,11 +214,13 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
             retryAttempt = 0;
             transition("OPEN");
             flushQueue();
+            startHeartbeat();
             bus.emit("open");
             settleConnected();
         };
 
         socket.onmessage = (event: MessageEvent) => {
+            lastInboundAt = Date.now();
             deliver(event.data);
         };
 
@@ -172,6 +232,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         socket.onclose = (event: CloseEvent) => {
             const wasConnecting = state === "connecting";
             socket = null;
+            stopHeartbeat();
 
             if (reconnect !== null && isRetryable(event)) {
                 // Event order is deliberate: statechange (state already moved
@@ -323,6 +384,7 @@ export function client(config: WebSocketClientConfig): WebSocketClient {
         close(code?: number, reason?: string) {
             closeRequested = true;
             clearRetryTimer();
+            stopHeartbeat();
             retryAttempt = 0;
             // The user hung up: queued messages will never send. Surface them
             // now (deterministically), not when the socket finishes closing.
