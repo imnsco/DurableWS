@@ -95,6 +95,37 @@ Same composability, different layer, and unrelated messages never wait.
   silently lost.
 - **Heartbeat pings bypass outbound middleware** entirely.
 
+## The built-in pack
+
+Common middleware ship in a tree-shakable subpath, `durablews/middleware`.
+Import only what you use; the rest adds zero bundle bytes, because the package
+is side-effect-free and bundlers drop unreferenced exports. (Importing just
+`auth`, for example, is well under 100 bytes, enforced in CI.)
+
+### `auth`
+
+The flagship outbound case as a ready-made helper: it resolves a credential at
+transmission time and injects it into each outgoing message.
+
+```ts
+import { defineClient } from "durablews";
+import { auth } from "durablews/middleware";
+
+const client = defineClient({ url }).use(
+    auth({
+        token: () => getAccessToken(),            // may be async
+        inject: (data, token) => ({ ...data, token })
+    })
+);
+```
+
+`inject` is required: messages are app-shaped, so there is no universal place
+to put a token. Because the token resolves at transmission time, a message
+queued across a reconnect still goes out with a current one. If `token()`
+throws or rejects, that one message is not sent and the failure surfaces as an
+`error` event (later messages are unaffected), per the outbound failure
+semantics above.
+
 ## Writing middleware once, typing it
 
 Middleware is typed by the client's generics: inbound contexts carry `TIn`,

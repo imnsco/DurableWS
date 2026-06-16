@@ -46,6 +46,16 @@
                 "types": "./dist/compat.d.cts",
                 "default": "./dist/compat.cjs"
             }
+        },
+        "./middleware": {
+            "import": {
+                "types": "./dist/middleware.d.ts",
+                "default": "./dist/middleware.js"
+            },
+            "require": {
+                "types": "./dist/middleware.d.cts",
+                "default": "./dist/middleware.cjs"
+            }
         }
     },
     "sideEffects": false,
@@ -163,6 +173,13 @@
             "name": "durablews/compat",
             "path": "dist/compat.js",
             "limit": "4 KB",
+            "brotli": true
+        },
+        {
+            "name": "durablews/middleware (auth only, tree-shaken)",
+            "path": "dist/middleware.js",
+            "import": "{ auth }",
+            "limit": "0.15 KB",
             "brotli": true
         }
     ]

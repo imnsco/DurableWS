@@ -39,7 +39,7 @@ export function defineClient(config: WebSocketClientConfig): WebSocketClient {
 export { RECONNECT_DEFAULTS } from "@/backoff";
 export { jsonCodec } from "@/codec";
 export { HEARTBEAT_TIMEOUT_CODE } from "@/heartbeat";
-export { pingpong } from "@/middleware";
+export { pingpong } from "@/middleware/pingpong";
 export { QUEUE_DEFAULTS } from "@/queue";
 export type { StandardSchemaV1 } from "@/schema";
 export { SchemaValidationError } from "@/schema";
