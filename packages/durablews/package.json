@@ -188,6 +188,13 @@
             "import": "{ logger }",
             "limit": "0.3 KB",
             "brotli": true
+        },
+        {
+            "name": "durablews/middleware (dedup only, tree-shaken)",
+            "path": "dist/middleware.js",
+            "import": "{ dedup }",
+            "limit": "0.25 KB",
+            "brotli": true
         }
     ]
 }

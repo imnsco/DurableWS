@@ -150,6 +150,23 @@ handlers always see the real message and an auth token never lands in a log.
 Defaults: log to `console.debug`, both directions, no redaction. Narrow with
 `direction: "inbound" | "outbound"`.
 
+### `dedup`
+
+Drops inbound duplicates, so a server that redelivers (at-least-once) never
+reaches your handler twice.
+
+```ts
+import { dedup } from "durablews/middleware";
+
+client.use(dedup({ key: (m) => (m as { id: string }).id }));
+```
+
+`key` is required (messages have no built-in id). Memory is bounded by
+`window` (default 1000, drop-oldest), in the same spirit as the core send
+queue: a duplicate that arrives more than `window` distinct messages later is
+no longer detected, but memory never grows without limit. A duplicate is
+short-circuited, so it never reaches a `message` handler.
+
 ## Writing middleware once, typing it
 
 Middleware is typed by the client's generics: inbound contexts carry `TIn`,
