@@ -63,7 +63,8 @@ mostly belong to the others. Redirected, explicitly:
 
 | Idea | What it actually is | Home |
 | --- | --- | --- |
-| auth, logging, idempotency/dedup, rate limiting | **middleware** | this RFC |
+| auth, logging, idempotency/dedup | **middleware** | this RFC (in-box) |
+| outbound flow control (backpressure) | middleware, but needs a core seam | this RFC, §6.4 — design fork, not in the first in-box set |
 | compression, signing/encryption, metrics/tracing | middleware, but app- or stack-specific config | shipped as **authoring examples**, not in-box (tracing → a future `durablews/otel` pack, RFC 0001 §9) |
 | socket.io wire format | a **codec** | `durablews/socketio`, its own track |
 | channels / actions / messages, incl. per-topic state cache | a **plugin** (adds API) | RFC 0003 |
