@@ -167,6 +167,25 @@ queue: a duplicate that arrives more than `window` distinct messages later is
 no longer detected, but memory never grows without limit. A duplicate is
 short-circuited, so it never reaches a `message` handler.
 
+#### Outbound idempotency keys (a recipe, not a member)
+
+There is no `idempotency` middleware, on purpose. DurableWS sends each message
+**at most once**, so its queue never creates duplicate sends for a key to
+guard against. If your *server* runs at-least-once processing and you want it
+to dedup, stamp a key it can recognize, which is a one-line outbound
+transform. Keep the key **stable per logical operation** (derive it from the
+message; do not generate a fresh one per send, or a retry would look new):
+
+```ts
+client.use({
+    outbound: (ctx, next) => {
+        const msg = ctx.data as { id: string };
+        ctx.data = { ...msg, idempotencyKey: msg.id };
+        return next();
+    }
+});
+```
+
 ## Writing middleware once, typing it
 
 Middleware is typed by the client's generics: inbound contexts carry `TIn`,
