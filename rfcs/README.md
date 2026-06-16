@@ -35,6 +35,7 @@ header, and the replaced RFC's status becomes
 
 ## Index
 
-| RFC                              | Title                     | Status      |
-| -------------------------------- | ------------------------- | ----------- |
-| [0001](0001-v2-architecture.md)  | DurableWS v2 Architecture | Implemented |
+| RFC                                  | Title                                | Status      |
+| ------------------------------------ | ------------------------------------ | ----------- |
+| [0001](0001-v2-architecture.md)      | DurableWS v2 Architecture            | Implemented |
+| [0002](0002-built-in-middleware.md)  | Built-in Middleware & the Authoring Contract | Draft |
