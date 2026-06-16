@@ -1,7 +1,13 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-    entry: ["src/index.ts", "src/vue.ts", "src/react.ts", "src/compat.ts"],
+    entry: {
+        index: "src/index.ts",
+        vue: "src/vue.ts",
+        react: "src/react.ts",
+        compat: "src/compat.ts",
+        middleware: "src/middleware/index.ts"
+    },
     format: ["esm", "cjs"],
     dts: true,
     clean: true,
