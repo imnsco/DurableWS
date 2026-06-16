@@ -1,5 +1,15 @@
 # durablews
 
+## 2.1.0
+
+### Minor Changes
+
+- cd77029: Add `dedup` to `durablews/middleware`: inbound middleware that drops duplicate messages (by a `key` you extract), so a server that redelivers never reaches your handler twice. Memory is bounded by `window` (drop-oldest), like the core send queue. Tree-shakable, like the rest of the pack.
+- f1a9359: Add `logger` to `durablews/middleware`: structured logging of every message in both directions, with a `redact` hook that scrubs secrets/PII for the logs only (the wire and your handlers see the real message). Tree-shakable, like the rest of the pack.
+- c4583c4: Add `durablews/middleware`, a tree-shakable pack of built-in middleware (RFC 0002), starting with `auth`. Import only what you use; unused middleware add zero bundle bytes.
+
+  `auth({ token, inject })` is outbound middleware that resolves a credential at transmission time and injects it into each message, so a message queued across a reconnect still goes out with a fresh token.
+
 ## 2.0.1
 
 ### Patch Changes
