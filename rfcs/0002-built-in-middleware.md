@@ -1,6 +1,6 @@
 # RFC 0002: Built-in Middleware & the Authoring Contract
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Author:** Nate Smith
 - **Created:** 2026-06-16
 
