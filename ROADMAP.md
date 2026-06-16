@@ -14,13 +14,22 @@ from there.
   re-resolved on every (re)connect attempt — the token-in-URL auth
   pattern. Closes the first concession in the docs'
   [comparison page](https://durablews.imns.co/comparison/).
-- **Built-in middleware pack.** A `durablews/middleware` subpath: named
-  exports, side-effect-free, tree-shakable — middleware you don't import
-  costs zero bundle bytes, enforced with a dedicated size-limit budget in
-  CI. Candidate set still to be settled (logger/devtools, token-refresh —
-  the canonical async outbound case — inbound dedup). Per-key
-  debounce/batch deliberately stay send-wrappers, not middleware
-  (RFC 0001 §9 records why).
+- **Built-in middleware pack — RFC 0002.** A `durablews/middleware`
+  subpath: named exports, side-effect-free, tree-shakable — middleware you
+  don't import costs zero bundle bytes, enforced with a dedicated
+  size-limit budget in CI. The RFC's spine is the public **middleware
+  authoring contract** (the API third-party `durablews-plugin-*` middleware
+  write against — the part expensive to reverse); the in-box set and the
+  tree-shaking guarantee hang off it. Production-grounded candidate set
+  (still to be confirmed): **auth/token-refresh** (the canonical async
+  outbound case), **logger/devtools with redaction**, **idempotency/dedup**
+  (outbound idempotency-key stamping makes the queue-flush safe; inbound
+  drops replays), and possibly an **order-preserving outbound rate
+  limiter** (the one pacing form §9 sanctions). Compression, signing, and
+  metrics/tracing (→ the OTel pack) ship as authoring *examples*, not
+  in-box. Explicitly out of scope, redirected in the RFC: codecs
+  (socket.io), plugins (channels, acks, sequencing), and AsyncAPI. Per-key
+  debounce/batch stay send-wrappers, not middleware (RFC 0001 §9).
 - **Examples in the docs.** One page per runnable example (its thesis,
   the load-bearing code excerpt, run instructions, GitHub link) plus an
   Examples card on the docs homepage. Follow-up: "Open in StackBlitz"
@@ -29,9 +38,11 @@ from there.
 
 ## Next — M6
 
-- **Channels** — the v2.x headline feature. Starts as RFC 0002: API
+- **Channels** — the v2.x headline feature. Starts as RFC 0003: API
   surface, the plugin vocabulary (RFC 0001 §4.6), and what it expects of
-  servers.
+  servers. (The first plugin-shaped feature; message acks and
+  sequence-gap/replay are plugin-adjacent and likely fold in here or
+  follow it.)
 - **Stress/soak harness.** Long-running chaos runs: server kill loops,
   queue pressure at the bound, reconnect storms, memory growth over
   hours. Durability claims should be measured, not asserted.
@@ -49,3 +60,7 @@ from there.
 - **Send-wrapper recipes** — debounce/batch/dedupe helpers composed in
   front of `send()`; a docs recipes page or a tiny helpers module
   (RFC 0001 §9).
+- **WHATWG conformance audit** — measure `durablews/compat` against the
+  [WHATWG WebSocket standard](https://websockets.spec.whatwg.org/) and turn
+  the result into a conformance test suite; sharpens the compat layer's
+  known-deviations table. Orthogonal to middleware.
