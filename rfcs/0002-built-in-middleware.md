@@ -1,31 +1,31 @@
-# RFC 0002 — Built-in Middleware & the Authoring Contract
+# RFC 0002: Built-in Middleware & the Authoring Contract
 
 - **Status:** Draft
 - **Author:** Nate Smith
-- **Created:** 2026-06-10
+- **Created:** 2026-06-16
 
 > M5 milestone (see [ROADMAP.md](../ROADMAP.md)). Process:
 > [rfcs/README.md](README.md). Builds on the middleware mechanism shipped
-> in [RFC 0001](0001-v2-architecture.md) — inbound in M2, outbound in M4
+> in [RFC 0001](0001-v2-architecture.md): inbound in M2, outbound in M4
 > slice 3 (the `§9` references below are to RFC 0001).
 
 ---
 
 ## 1. Summary
 
-DurableWS shipped a middleware *mechanism* in 2.0 — an onion pipeline,
+DurableWS shipped a middleware *mechanism* in 2.0: an onion pipeline,
 inbound and outbound, registered through `use()`, with one middleware
 already in the box (`pingpong`, the heartbeat keepalive). This RFC does
 two things on top of it:
 
 1. Promotes the middleware **authoring API** to a documented, **stable
-   public contract** — the surface third-party packages and your own app
-   middleware are written against, and the semantic guarantees they may
+   public contract**, the surface third-party packages and your own app
+   middleware are written against, plus the semantic guarantees they may
    rely on. This is the part expensive to reverse, so it is the spine of
    the RFC.
 2. Ships a small set of **built-in middleware** for the cross-cutting
-   concerns every production WebSocket app re-implements — auth, logging,
-   idempotency/dedup — as tree-shakable named exports under a new
+   concerns every production WebSocket app re-implements (auth, logging,
+   idempotency/dedup) as tree-shakable named exports under a new
    `durablews/middleware` subpath.
 
 It deliberately adds **no new core capability**. The mechanism exists;
@@ -42,13 +42,13 @@ reconnect boundary:
 
 - A token that was valid at `send()` is **stale** by the time a message
   queued across a 30s outage actually flushes. Outbound middleware running
-  at transmission time is the fix (§9) — but every app re-writes the
+  at transmission time is the fix (§9), but every app re-writes the
   token-attach glue.
 - The at-least-once queue-flush is only **safe** if the server can drop
-  duplicates — which it can only do if the client stamps an idempotency
+  duplicates, which it can only do if the client stamps an idempotency
   key. And the client, receiving replays, wants to drop duplicates inbound.
 - Everyone writes the same **logger**, and the production version isn't
-  `console.log` — it's structured output with secrets/PII **redacted**.
+  `console.log`; it's structured output with secrets/PII **redacted**.
 
 These are universal, mechanical, and easy to get subtly wrong (timing,
 bounded memory, ordering). They belong in the box. The line we hold:
@@ -64,15 +64,15 @@ mostly belong to the others. Redirected, explicitly:
 | Idea | What it actually is | Home |
 | --- | --- | --- |
 | auth, logging, idempotency/dedup | **middleware** | this RFC (in-box) |
-| outbound flow control (backpressure) | middleware, but needs a core seam | this RFC, §6.4 — design fork, not in the first in-box set |
-| compression, signing/encryption, metrics/tracing | middleware, but app- or stack-specific config | shipped as **authoring examples**, not in-box (tracing → a future `durablews/otel` pack, RFC 0001 §9) |
+| outbound flow control (backpressure) | middleware, but needs a core seam | this RFC, §6.4: a design fork, not in the first in-box set |
+| compression, signing/encryption, metrics/tracing | middleware, but app- or stack-specific config | shipped as **authoring examples**, not in-box (tracing becomes a future `durablews/otel` pack, RFC 0001 §9) |
 | socket.io wire format | a **codec** | `durablews/socketio`, its own track |
 | channels / actions / messages, incl. per-topic state cache | a **plugin** (adds API) | RFC 0003 |
 | message acks, sequence-gap/replay | plugin-adjacent (add API or need the server) | with/after RFC 0003 |
 | AsyncAPI typed-client generation | **tooling/codegen** | its own track |
 
 The recurring trap is **cache**. There is no coherent cache for an
-undifferentiated message stream — no key, no "result." Caching needs a
+undifferentiated message stream: no key, no "result." Caching needs a
 key, and *channels supply one* (the topic), which is why the per-topic
 state cache lives in RFC 0003, not here. The HTTP sibling is where a
 TanStack-Query-style response cache genuinely belongs.
@@ -80,8 +80,8 @@ TanStack-Query-style response cache genuinely belongs.
 ## 4. The authoring contract
 
 Everything in this section already exists and is exported from the package
-root as of 2.0. This RFC's job is to **declare it stable** — the surface
-we commit not to break — and to document the conventions around it.
+root as of 2.0. This RFC's job is to **declare it stable** (the surface
+we commit not to break) and to document the conventions around it.
 
 ### 4.1 The middleware shape
 
@@ -95,18 +95,18 @@ client.use({ inbound, outbound });              // one logical middleware,
                                                 // both directions
 ```
 
-(Keys are the full words, not `{ in, out }`: `in` is a reserved word —
-illegal as a destructuring binding, forcing `{ in: inbound }` renames —
-and the names match the exported type vocabulary. The Express `req`/`res`
-brevity applies to callback *parameters*, which here are already terse:
-`ctx`, `next`.)
+(Keys are the full words, not `{ in, out }`: `in` is a reserved word,
+illegal as a destructuring binding, which would force `{ in: inbound }`
+renames, and the names match the exported type vocabulary. The Express
+`req`/`res` brevity applies to callback *parameters*, which here are
+already terse: `ctx`, `next`.)
 
 - **Inbound** (`Middleware<TIn>`) runs per inbound message, in registration
-  order, *after* `codec.decode` and schema validation — so middleware only
+  order, *after* `codec.decode` and schema validation, so middleware only
   ever sees decoded, valid data. `ctx.data` is the message (reassign to
   transform); `ctx.client` is the client (e.g. to auto-reply).
 - **Outbound** (`OutboundMiddleware<TOut>`) runs per outgoing message at
-  **transmission time** — after dequeue, before `codec.encode`. `ctx.data`
+  **transmission time** (after dequeue, before `codec.encode`). `ctx.data`
   is exactly what was passed to `send()`.
 
 ### 4.2 The stable guarantees
@@ -116,12 +116,12 @@ silently change:
 
 1. **Order.** Middleware run in registration order. The outbound path is
    serialized: even when one middleware awaits, messages reach the socket
-   in `send()` order (head-of-line by design — a delaying middleware
-   delays everything behind it). When nothing awaits, the outbound path is
-   fully synchronous (zero overhead).
+   in `send()` order (head-of-line by design: a delaying middleware delays
+   everything behind it). When nothing awaits, the outbound path is fully
+   synchronous (zero overhead).
 2. **Short-circuit.** Returning without calling `next()` stops the chain:
    inbound, the message is not dispatched; outbound, it is **not sent, and
-   no `drop` event fires** — `drop` means durability loss, not policy.
+   no `drop` event fires** (`drop` means durability loss, not policy).
 3. **Per-message error isolation.** A throw/rejection surfaces as an
    `error` event and skips only that message; later messages continue.
 4. **Heartbeat bypass.** `pingpong` and heartbeat frames bypass outbound
@@ -145,7 +145,7 @@ import type {
 ### 4.4 The factory convention
 
 Configurable middleware are **factories** returning a
-`DirectionalMiddleware`, uniformly — including single-direction ones, so
+`DirectionalMiddleware`, uniformly, including single-direction ones, so
 every middleware registers the same way:
 
 ```ts
@@ -171,17 +171,17 @@ ecosystem namespace.)
 The pack ships as a **subpath**: `durablews/middleware`, named exports,
 **no module-level side effects**. The package already declares
 `"sideEffects": false`, which is the contract that lets Rollup/Vite/esbuild
-drop unreferenced exports — so `import { logger } from "durablews/middleware"`
+drop unreferenced exports, so `import { logger } from "durablews/middleware"`
 pulls in *zero bytes* of `auth`, `dedup`, etc.
 
-This is the answer to "won't bundling more middleware bloat apps?" —
-**install size and bundle size are different problems.** Everything is
-installed (the deliberate one-package choice, RFC 0001 §5); tree-shaking
+This is the answer to "won't bundling more middleware bloat apps?" The
+point: **install size and bundle size are different problems.** Everything
+is installed (the deliberate one-package choice, RFC 0001 §5); tree-shaking
 guarantees unused middleware never reach the *bundle*.
 
 **Enforced, not trusted.** CI gains one `size-limit` entry per export, each
 importing a single middleware with a budget tight enough that a sibling
-leaking in fails the build — the same per-entry mechanism already guarding
+leaking in fails the build, the same per-entry mechanism already guarding
 core/vue/react/compat.
 
 ## 6. The in-box set
@@ -190,7 +190,7 @@ Three middleware, each a factory (§4.4); config shapes are illustrative,
 to be finalized in implementation. §6.4 covers outbound flow control,
 which review moved *out* of the first in-box set.
 
-### 6.1 `auth` — outbound
+### 6.1 `auth` (outbound)
 
 ```ts
 auth({
@@ -200,13 +200,13 @@ auth({
 ```
 
 Calls `token()` when the message actually goes out, so a message queued
-across a reconnect carries a **fresh** token. `attach` is required —
+across a reconnect carries a **fresh** token. `attach` is required:
 messages are app-shaped, there is no universal placement. Honestly this
 middleware is *thin*: the hard part (transmission-time timing, ordered
 async) is core; `auth` is the correct, tested glue over it. That it can be
 thin is the point.
 
-### 6.2 `logger` — inbound + outbound
+### 6.2 `logger` (inbound + outbound)
 
 ```ts
 logger({
@@ -217,10 +217,10 @@ logger({
 ```
 
 Structured per-message entries (direction, data, timestamp, connection
-state). **Redaction is the production-grade part** toy loggers skip — you
+state). **Redaction is the production-grade part** toy loggers skip: you
 do not want auth tokens or PII in logs. Never mutates `ctx.data`.
 
-### 6.3 `dedup` / `idempotency` — the replay pair
+### 6.3 `dedup` / `idempotency`: the replay pair
 
 ```ts
 dedup({ key: (data) => string, window?: number })        // inbound
@@ -229,54 +229,54 @@ idempotency({ key?: (data) => string, attach })          // outbound
 
 `idempotency` stamps a client-generated key (default `crypto.randomUUID()`)
 so the server can drop the duplicate it already processed before your
-reconnect — this is what makes the at-least-once queue-flush *safe*, and
-the more valuable half. `dedup` drops inbound messages whose key was seen
-within a **bounded** window (count or time — never unbounded memory).
-Both need a `key` extractor because messages have no built-in id.
+reconnect; this is what makes the at-least-once queue-flush *safe*, and the
+more valuable half. `dedup` drops inbound messages whose key was seen
+within a **bounded** window (count or time, never unbounded memory). Both
+need a `key` extractor because messages have no built-in id.
 
-### 6.4 Outbound flow control (open — not committed in-box)
+### 6.4 Outbound flow control (open, not committed in-box)
 
 The fourth slot was `rateLimit`, but it conflated three mechanisms, only
 one of which is a universal production concern:
 
-- **Rate limiting** (token bucket, messages/interval) — matters only when
+- **Rate limiting** (token bucket, messages/interval): matters only when
   the *server* enforces a rate and drops offenders. Niche.
-- **Concurrency semaphore** (bound in-flight count) — on a fire-and-forget
+- **Concurrency semaphore** (bound in-flight count): on a fire-and-forget
   socket there is no per-message completion to count down on, so a
   semaphore only has meaning with **acks** (→ RFC 0003); without them it
   collapses into backpressure.
-- **Backpressure** (gate on `bufferedAmount`) — stop feeding the socket
-  when its send buffer backs up faster than the network drains. *This* is
-  the real one: it bounds client memory and latency, and it is the
+- **Backpressure** (gate on `bufferedAmount`): stop feeding the socket when
+  its send buffer backs up faster than the network drains. *This* is the
+  real one: it bounds client memory and latency, and it is the
   **open-socket counterpart to the disconnected queue** (bounded,
   drop-oldest) DurableWS already ships. Today the open-socket side is
   unmanaged.
 
-All three are order-preserving, so §9 permits them as middleware — but
-backpressure needs a seam core does not expose yet: `bufferedAmount`
-exists only as a compat stub. So this is a design fork (§8), not a drop-in
+All three are order-preserving, so §9 permits them as middleware, but
+backpressure needs a seam core does not expose yet: `bufferedAmount` exists
+only as a compat stub. So this is a design fork (§8), not a drop-in
 middleware, and the first in-box release is the **three** above.
 
 ## 7. Inclusion & exclusion rationale
 
 **In:** universal, mechanical, easy to get subtly wrong, and exercised by
 the reconnect boundary that is DurableWS's whole reason to exist (auth,
-idempotency/dedup) or by every app regardless (logger). **Out (→
+idempotency/dedup) or by every app regardless (logger). **Out (to
 examples):** compression (`CompressionStream`) and signing/encryption
 (WebCrypto) are §9-grounded but niche and app-specific; **metrics/tracing**
 is high-value but blocked on the lack of stable WebSocket OTel semantic
-conventions — it becomes the `durablews/otel` pack on demand, not an
-invented-attributes middleware shipped today. **Out (→ other categories):**
-cache, channels, codecs, AsyncAPI (§3).
+conventions, so it becomes the `durablews/otel` pack on demand, not an
+invented-attributes middleware shipped today. **Out (to other
+categories):** cache, channels, codecs, AsyncAPI (§3).
 
 ## 8. Open questions
 
 - **Outbound validation.** Inbound validation is core (`config.schema`,
   decode → schema → middleware). Should validating what you `send()` be a
   symmetric core option, or just the simplest outbound middleware
-  (`validate({ schema })`)? Recommendation: **middleware first** — it needs
-  no core change and proves the pattern; promote to a core option only on
-  demand. (This is the M5 "outbound validation" roadmap item.)
+  (`validate({ schema })`)? Recommendation: **middleware first**, since it
+  needs no core change and proves the pattern; promote to a core option
+  only on demand. (This is the M5 "outbound validation" roadmap item.)
 - **Outbound flow control (§6.4).** The real concern is *backpressure*
   (gate on `bufferedAmount`), not clock-based rate limiting or a
   concurrency semaphore (which needs acks). Fork: expose `bufferedAmount`
@@ -284,10 +284,10 @@ cache, channels, codecs, AsyncAPI (§3).
   it first-class core, symmetric with the disconnected queue? Out of the
   first in-box set either way.
 - **Naming.** `Middleware` (inbound) vs `OutboundMiddleware` is an
-  asymmetric pair — add an `InboundMiddleware` alias for symmetry? And do
+  asymmetric pair; add an `InboundMiddleware` alias for symmetry? And do
   third-party middleware keep `durablews-plugin-*` or get
   `durablews-middleware-*` (§4.5)?
 - **Subpath surface.** One `durablews/middleware` entry with all named
   exports (relies on tree-shaking), vs per-middleware subpaths. Default:
-  one entry — `sideEffects:false` makes per-subpath unnecessary unless a
-  middleware grows a heavy dependency (none should; core is zero-dep).
+  one entry, since `sideEffects:false` makes per-subpath unnecessary unless
+  a middleware grows a heavy dependency (none should; core is zero-dep).
