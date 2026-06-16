@@ -30,6 +30,10 @@ from there.
   in-box. Explicitly out of scope, redirected in the RFC: codecs
   (socket.io), plugins (channels, acks, sequencing), and AsyncAPI. Per-key
   debounce/batch stay send-wrappers, not middleware (RFC 0001 §9).
+- **Outbound validation.** Validate what you `send()` against the schema,
+  symmetric with inbound (which already validates decode → schema →
+  handler). Open question: a small core option, or the simplest outbound
+  middleware? Decide in/with RFC 0002.
 - **Examples in the docs.** One page per runnable example (its thesis,
   the load-bearing code excerpt, run instructions, GitHub link) plus an
   Examples card on the docs homepage. Follow-up: "Open in StackBlitz"
@@ -38,14 +42,16 @@ from there.
 
 ## Next — M6
 
-- **Channels** — the v2.x headline feature. Starts as RFC 0003: API
-  surface, the plugin vocabulary (RFC 0001 §4.6), and what it expects of
-  servers. (The first plugin-shaped feature; message acks and
-  sequence-gap/replay are plugin-adjacent and likely fold in here or
-  follow it.)
-- **Stress/soak harness.** Long-running chaos runs: server kill loops,
-  queue pressure at the bound, reconnect storms, memory growth over
-  hours. Durability claims should be measured, not asserted.
+- **Channels** — the v2.x headline feature. Starts as RFC 0003: the
+  channels / actions / messages API surface, the plugin vocabulary
+  (RFC 0001 §4.6), and what it expects of servers. Core to the design (not
+  an add-on): a **per-topic state cache** — a hash map keyed by channel,
+  so subscriptions to the same topic dedup, the last value is retained,
+  and a late subscriber gets current state on subscribe, then live
+  updates. This is the TanStack-Query-shaped piece; channels make it
+  coherent because the topic *is* the key a raw message stream lacks.
+  Message acks and sequence-gap/replay are plugin-adjacent and likely fold
+  in here or follow it.
 
 ## Later — unscheduled ideas
 
@@ -64,3 +70,7 @@ from there.
   [WHATWG WebSocket standard](https://websockets.spec.whatwg.org/) and turn
   the result into a conformance test suite; sharpens the compat layer's
   known-deviations table. Orthogonal to middleware.
+- **Stress/soak harness.** Long-running chaos runs: server kill loops,
+  queue pressure at the bound, reconnect storms, memory growth over hours.
+  Durability claims should be measured, not asserted. Committed but lowest
+  priority — runs last, after the user-facing work above.
