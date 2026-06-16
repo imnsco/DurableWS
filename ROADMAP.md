@@ -20,14 +20,16 @@ from there.
   size-limit budget in CI. The RFC's spine is the public **middleware
   authoring contract** (the API third-party `durablews-plugin-*` middleware
   write against, the part expensive to reverse); the in-box set and the
-  tree-shaking guarantee hang off it. Production-grounded candidate set
-  (still to be confirmed): **auth/token-refresh** (the canonical async
-  outbound case), **logger/devtools with redaction**, **idempotency/dedup**
-  (outbound idempotency-key stamping makes the queue-flush safe; inbound
-  drops replays), and possibly an **order-preserving outbound rate
-  limiter** (the one pacing form §9 sanctions). Compression, signing, and
-  metrics/tracing (→ the OTel pack) ship as authoring *examples*, not
-  in-box. Explicitly out of scope, redirected in the RFC: codecs
+  tree-shaking guarantee hang off it. Shipped in-box: **auth/token-refresh**
+  (the canonical async outbound case), **logger/devtools with redaction**,
+  and **dedup** (bounded inbound duplicate-dropping). `idempotency` was
+  dropped during implementation: DurableWS sends each message at most once,
+  so the queue never makes the duplicate a key would dedup, and the
+  legitimate server-side-dedup use is a one-line outbound recipe, not a
+  canned member (see RFC 0002 §6.3). An **order-preserving outbound rate
+  limiter** stays a candidate (the one pacing form §9 sanctions).
+  Compression, signing, and metrics/tracing (→ the OTel pack) ship as
+  authoring *examples*, not in-box. Explicitly out of scope, redirected in the RFC: codecs
   (socket.io), plugins (channels, acks, sequencing), and AsyncAPI. Per-key
   debounce/batch stay send-wrappers, not middleware (RFC 0001 §9).
 - **Outbound validation.** Validate what you `send()` against the schema,
