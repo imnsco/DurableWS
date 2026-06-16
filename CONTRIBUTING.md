@@ -1,6 +1,6 @@
 # Contributing to DurableWS
 
-Thanks for your interest in contributing! DurableWS is being built in the open, and contributions — issues, docs, fixes, features — are welcome.
+Thanks for your interest in contributing! DurableWS is being built in the open, and contributions (issues, docs, fixes, features) are welcome.
 
 > **Where things stand:** v2 has shipped (`durablews@2.0.0`). [ROADMAP.md](ROADMAP.md) is the live plan; [RFC 0001](rfcs/0001-v2-architecture.md) records the architecture and why it is the way it is. Before starting non-trivial work, see [Proposing changes](#proposing-changes).
 
@@ -47,31 +47,31 @@ We use [changesets](https://github.com/changesets/changesets) for versioning and
 pnpm changeset
 ```
 
-Pick the appropriate semver bump and write a short, user-facing summary — it becomes the changelog entry verbatim. Tooling-only or docs-only changes that don't affect consumers don't need one. (Releases themselves are two merges; see [RELEASING.md](RELEASING.md).)
+Pick the appropriate semver bump and write a short, user-facing summary, it becomes the changelog entry verbatim. Tooling-only or docs-only changes that don't affect consumers don't need one. (Releases themselves are two merges; see [RELEASING.md](RELEASING.md).)
 
 ## Proposing changes
 
 Match the weight of the process to the weight of the change:
 
-- **Bug fixes and small improvements** — open a PR directly.
-- **Features** — open an issue first, so the approach is agreed before code is written. Scheduled work lives in [ROADMAP.md](ROADMAP.md).
-- **Architecture-level changes** — public API shape, packaging/exports, protocol semantics; anything expensive to reverse — start an RFC. The process is one page: [rfcs/README.md](rfcs/README.md).
+- **Bug fixes and small improvements**: open a PR directly.
+- **Features**: open an issue first, so the approach is agreed before code is written. Scheduled work lives in [ROADMAP.md](ROADMAP.md).
+- **Architecture-level changes** (public API shape, packaging/exports, protocol semantics; anything expensive to reverse) start an RFC. The process is one page: [rfcs/README.md](rfcs/README.md).
 
 ## Pull requests
 
 1. Branch from `main`.
 2. Make your change with tests and (if user-facing) a changeset.
-3. If your change completes or alters a roadmap item, update [ROADMAP.md](ROADMAP.md) in the same PR — tracker updates travel with the work.
+3. If your change completes or alters a roadmap item, update [ROADMAP.md](ROADMAP.md) in the same PR, tracker updates travel with the work.
 4. Ensure `pnpm verify` passes.
 5. Open a PR against `main` and fill out the template.
 
 ## Plugins & add-ons
 
-DurableWS keeps a small core and ships optional capabilities as **subpath exports** — named by what they are:
+DurableWS keeps a small core and ships optional capabilities as **subpath exports**: named by what they are:
 
-- **middleware** — cross-cutting behavior over the message pipeline (auth, logging, retry hooks)
-- **codecs** — the wire format (`encode`/`decode`), e.g. JSON (default), msgpack
-- **plugins** — add-ons that extend the client's public API (e.g. channels/presence)
+- **middleware**: cross-cutting behavior over the message pipeline (auth, logging, retry hooks)
+- **codecs**: the wire format (`encode`/`decode`), e.g. JSON (default), msgpack
+- **plugins**: add-ons that extend the client's public API (e.g. channels/presence)
 
 ### Naming convention for third-party packages
 

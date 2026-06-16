@@ -1,10 +1,10 @@
 ---
 title: React
-description: The useWebSocket hook — DurableWS state in React, built on useSyncExternalStore.
+description: The useWebSocket hook, DurableWS state in React, built on useSyncExternalStore.
 ---
 
 DurableWS ships a first-class React hook in the box: `durablews/react`.
-No extra package — React is an *optional* peer dependency, so installing
+No extra package, React is an *optional* peer dependency, so installing
 `durablews` without React never warns, and the hook only loads when you
 import it. React 18+ is required.
 
@@ -39,9 +39,9 @@ Everything durable-by-default applies: the connection reconnects with
 full-jitter backoff, `send()` queues while disconnected and flushes on open,
 and `state` walks through `"reconnecting"` so your UI can show it.
 
-The hook is built on `useSyncExternalStore` — the client's `subscribe()` /
+The hook is built on `useSyncExternalStore`, the client's `subscribe()` /
 `getState()` pair is exactly that contract, with referentially stable
-snapshots — so it is concurrent-rendering-safe and Strict Mode's double-effect
+snapshots, so it is concurrent-rendering-safe and Strict Mode's double-effect
 mount/unmount cycle is handled.
 
 ## What you get back
@@ -56,7 +56,7 @@ mount/unmount cycle is handled.
 | `send` / `connect` / `close` | functions | Proxies to the client |
 | `client` | `WebSocketClient` | The full client, for everything else (`on()`, `use()`, …) |
 
-`lastMessage` keeps only the latest message — DurableWS never accumulates
+`lastMessage` keeps only the latest message, DurableWS never accumulates
 message history. To process every message, subscribe on the client in an
 effect:
 
@@ -64,7 +64,7 @@ effect:
 const { client } = useWebSocket({ url });
 
 useEffect(() => {
-    // on() returns its own unsubscribe — ready-made effect cleanup.
+    // on() returns its own unsubscribe, ready-made effect cleanup.
     return client.on("message", (msg) => {
         // every message, not just the latest
     });
@@ -74,7 +74,7 @@ useEffect(() => {
 ## Typed messages
 
 Pass a [Standard Schema](https://standardschema.dev) (zod, valibot, arktype, …)
-and `lastMessage` is fully typed — plus every inbound message is validated at
+and `lastMessage` is fully typed, plus every inbound message is validated at
 runtime:
 
 ```tsx
@@ -92,17 +92,17 @@ function Chat() {
 }
 ```
 
-The config is captured on first render — changing it later does not recreate
+The config is captured on first render, changing it later does not recreate
 the client, so an inline config object is fine (no `useMemo` needed).
 
 ## Sharing one connection across components
 
 Pass an **existing client** instead of a config and the hook only observes
-it — it never connects or closes a client it was handed. This is the pattern
+it, it never connects or closes a client it was handed. This is the pattern
 for an app-wide connection used by many components:
 
 ```tsx
-// src/ws.ts — the app owns this client
+// src/ws.ts, the app owns this client
 import { defineClient } from "durablews";
 
 export const ws = defineClient({ url: "wss://example.com/socket" });

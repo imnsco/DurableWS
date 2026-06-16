@@ -1,13 +1,13 @@
 # Releasing
 
-How a `durablews` release works end to end. Publishing is fully automated —
-npm **trusted publishing** via OIDC, so no npm token exists anywhere — and a
+How a `durablews` release works end to end. Publishing is fully automated,
+npm **trusted publishing** via OIDC, so no npm token exists anywhere, and a
 release is exactly **two PR merges**.
 
 ## The flow
 
 1. Feature PRs that affect the published package include a changeset
-   (`pnpm changeset`). The summary you write there is the changelog entry —
+   (`pnpm changeset`). The summary you write there is the changelog entry,
    write it user-facing.
 2. On every merge to `main`, `release.yml` runs. While changesets are
    pending it opens (or force-updates) the **"Version Packages" PR**
@@ -20,7 +20,7 @@ release is exactly **two PR merges**.
 
 ## Mechanics worth knowing
 
-- **npm auth:** Trusted Publisher (OIDC) — `imnsco/DurableWS` →
+- **npm auth:** Trusted Publisher (OIDC), `imnsco/DurableWS` →
   `release.yml` → environment `production`, configured on the npm package
   settings. Nothing to rotate. Trusted publishing needs npm ≥ 11.5.1, so
   the workflow installs `npm@latest` before publishing.
@@ -31,7 +31,7 @@ release is exactly **two PR merges**.
   credentials checkout persists) and the changesets step's `GITHUB_TOKEN`
   env (PR creation via the API). Without it the Version PR branch is
   pushed by the built-in `GITHUB_TOKEN`, whose events never trigger
-  workflows — the PR's required checks would sit "expected" forever.
+  workflows, the PR's required checks would sit "expected" forever.
 - Every merge to `main` force-rebuilds the open Version PR branch; its
   checks re-run automatically.
 
@@ -39,7 +39,7 @@ release is exactly **two PR merges**.
 
 - **Version PR has no checks:** `RELEASE_TOKEN` is missing, expired, or
   was removed from one of its two spots in `release.yml`. Stopgap while
-  fixing the token: close and reopen the PR — a real-user event
+  fixing the token: close and reopen the PR, a real-user event
   re-triggers CI.
 - **Publish fails on auth:** the Trusted Publisher config on npm must
   match the workflow exactly (owner/repo, workflow filename, environment

@@ -16,9 +16,9 @@ The legacy `1.x` line is not maintained.
 
 Instead, use one of the following private channels:
 
-1. **GitHub private vulnerability reporting** — preferred. Open a report via the
+1. **GitHub private vulnerability reporting**: preferred. Open a report via the
    repository's **Security → Report a vulnerability** tab.
-2. **Email** — `contact@imns.co`.
+2. **Email**: `contact@imns.co`.
 
 Please include enough detail to reproduce: affected version/commit, a
 description of the issue, and a proof of concept if possible.

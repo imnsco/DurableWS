@@ -1,9 +1,9 @@
 ---
 title: DurableWS
-description: A resilient, zero-dependency WebSocket client for TypeScript — durable by default.
+description: A resilient, zero-dependency WebSocket client for TypeScript, durable by default.
 template: splash
 hero:
-  tagline: The WebSocket client that survives the real world — automatic reconnection, bounded queueing, and typed messages. Zero dependencies, every modern runtime.
+  tagline: The WebSocket client that survives the real world, automatic reconnection, bounded queueing, and typed messages. Zero dependencies, every modern runtime.
   actions:
     - text: Get started
       link: /getting-started/
@@ -23,7 +23,7 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 <CardGrid stagger>
 	<Card title="Durable by default" icon="random">
 		Automatic reconnection with full-jitter backoff and bounded message
-		queueing — on out of the box. Opt-in heartbeat closes quietly-dead
+		queueing, on out of the box. Opt-in heartbeat closes quietly-dead
 		links. Every dropped message is observable; nothing is silently lost.
 	</Card>
 	<Card title="Typed end to end" icon="seti:typescript">
@@ -33,13 +33,13 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 	</Card>
 	<Card title="Vue & React in the box" icon="laptop">
 		A [composable](/frameworks/vue/) and a [hook](/frameworks/react/) as
-		subpath exports with optional peers — reactive connection state,
+		subpath exports with optional peers, reactive connection state,
 		automatic cleanup, one install.
 	</Card>
 	<Card title="Drop-in compatible" icon="approve-check">
 		[`durablews/compat`](/guides/compat/) is a `WebSocket`-shaped class:
 		swap it into existing code or inject it as a library's
-		`webSocketImpl` — with a published known-deviations table.
+		`webSocketImpl`, with a published known-deviations table.
 	</Card>
 	<Card title="Zero dependencies" icon="rocket">
 		Built on the standard global `WebSocket`. No `ws`, no bloat. Browsers,

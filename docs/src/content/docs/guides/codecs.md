@@ -1,10 +1,10 @@
 ---
 title: Codecs
-description: The wire-format seam — JSON by default, swap in anything.
+description: The wire-format seam, JSON by default, swap in anything.
 ---
 
 Every message crosses `encode`/`decode`, so the wire format is a first-class
-config option — not middleware:
+config option, not middleware:
 
 ```ts
 interface Codec {
@@ -20,10 +20,10 @@ the codec contract can never drift looser than what the socket accepts.
 
 With no `codec` configured, `jsonCodec` applies:
 
-- **encode** — strings pass through as-is; binary (`ArrayBuffer`,
+- **encode**: strings pass through as-is; binary (`ArrayBuffer`,
   `ArrayBufferView`, `Blob`) passes through untouched; everything else is
   `JSON.stringify`-ed.
-- **decode** — strings are `JSON.parse`-d with a safe fallback to the raw
+- **decode**: strings are `JSON.parse`-d with a safe fallback to the raw
   string when they aren't JSON; binary frames pass through untouched.
 
 That means `client.send({ type: "hello" })` and `client.send(bytes)` both do
@@ -46,7 +46,7 @@ const client = defineClient({ url, codec: msgpackCodec });
 
 :::tip[Binary frames arrive as `Blob` in browsers]
 Browsers deliver binary WebSocket frames as `Blob` by default. If your codec
-expects `ArrayBuffer`, handle both — or decode the `Blob` asynchronously in an
+expects `ArrayBuffer`, handle both, or decode the `Blob` asynchronously in an
 inbound middleware instead, since `decode` is synchronous.
 :::
 
@@ -60,7 +60,7 @@ outbound:  send() → [queue] → outbound middleware → codec.encode → socke
 Two consequences worth knowing:
 
 - [Schema validation](/getting-started/#typed-and-validated-messages) runs on
-  *decoded* values — your schema describes application messages, not wire
+  *decoded* values, your schema describes application messages, not wire
   bytes.
 - Outbound middleware runs *before* encode, so middleware transforms plain
   values and the codec owns serialization. A token-stamping middleware and a

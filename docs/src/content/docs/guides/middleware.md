@@ -1,6 +1,6 @@
 ---
 title: Middleware
-description: Intercept messages in both directions — auth, logging, filtering, transforms.
+description: Intercept messages in both directions, auth, logging, filtering, transforms.
 ---
 
 Middleware intercepts messages flowing through the client. It follows the
@@ -18,7 +18,7 @@ client.use({ inbound: logIn, outbound: logOut });    // one logical middleware,
                                                      // both directions
 ```
 
-Middleware never adds client API — that's the [vocabulary](/reference/api/)
+Middleware never adds client API, that's the [vocabulary](/reference/api/)
 boundary between middleware and plugins.
 
 ## Inbound
@@ -34,7 +34,7 @@ client.use((ctx, next) => {
 });
 ```
 
-Short-circuiting suppresses the `message` event — useful for protocol frames
+Short-circuiting suppresses the `message` event, useful for protocol frames
 your handlers shouldn't see. The built-in `pingpong` middleware does exactly
 this: auto-replies to server pings without bubbling them.
 
@@ -45,7 +45,7 @@ client.use(pingpong);
 
 ## Outbound
 
-Runs at **transmission time** — after the queue, before `codec.encode`. The
+Runs at **transmission time**: after the queue, before `codec.encode`. The
 flagship use case is auth:
 
 ```ts
@@ -60,17 +60,17 @@ client.use({
 Transmission-time execution is a durability feature: a message queued across a
 30-second reconnect is stamped with a token that is fresh *when it actually
 goes out*, not when you called `send()`. It also means `drop` events always
-carry the raw value you passed to `send()` — never a half-transformed one.
+carry the raw value you passed to `send()`, never a half-transformed one.
 
 ### Ordering (and its honest cost)
 
 Outbound middleware may be async, and the outbound path is **serialized**:
 messages reach the socket in `send()` order even while an earlier message's
 middleware awaits. When nothing is in flight and the chain is synchronous,
-`send()` stays fully synchronous — zero overhead.
+`send()` stays fully synchronous, zero overhead.
 
 The flip side: a middleware that delays one message delays everything behind
-it (head-of-line). That's correct for the things middleware is for — pacing
+it (head-of-line). That's correct for the things middleware is for, pacing
 the stream *means* delaying it; a token refresh blocking sends is what
 freshness requires. Policies that want to selectively delay or collapse
 *specific* messages (per-key debounce, batching) inherently want reordering,
@@ -80,12 +80,12 @@ which the pipeline refuses. Compose those in front of `send()` instead:
 const sendTyping = debounce((s) => client.send(s), 300);
 ```
 
-Same composability, different layer — and unrelated messages never wait.
+Same composability, different layer, and unrelated messages never wait.
 
 ### Failure semantics
 
 - **Short-circuit** (returning without `next()`) means *deliberately not
-  sent*. No `drop` event — `drop` means the library couldn't deliver
+  sent*. No `drop` event, `drop` means the library couldn't deliver
   something; this is your policy choosing not to.
 - **A throw or rejection** surfaces as an `error` event and skips **only that
   message**; everything behind it continues.
