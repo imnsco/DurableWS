@@ -4,7 +4,7 @@ description: What changed between durablews 1.x and 2.0.
 ---
 
 v2 is a ground-up rewrite. v1's README advertised durability features the code
-didn't implement; v2 implements them. The API breaks — deliberately and once.
+didn't implement; v2 implements them. The API breaks, deliberately and once.
 
 ## The store is gone
 
@@ -12,7 +12,7 @@ v1 was a Redux-style store: `defineStore`, `dispatch`, `defineAction`,
 `composeActions`, reducers over connection state. All of it is removed. The
 connection lifecycle is now a typed finite state machine the library owns, and
 **messages are never accumulated in state** (v1's default handler retained
-every message forever — an unbounded leak).
+every message forever, an unbounded leak).
 
 ```ts
 // v1
@@ -25,7 +25,7 @@ await client.connect();
 ```
 
 If you used the store for app state: deliver messages into your own state
-tool (a `message` handler that writes to your store of choice) — core stays
+tool (a `message` handler that writes to your store of choice), core stays
 out of app state by design.
 
 ## No more singleton
@@ -44,8 +44,8 @@ export const ws = defineClient({ url });
 | v1 | v2 |
 | --- | --- |
 | `connected` | `open` |
-| `closed` (never fired — the v1 bug) | `close` |
-| — | `statechange`, `reconnecting`, `drop` |
+| `closed` (never fired, the v1 bug) | `close` |
+|, | `statechange`, `reconnecting`, `drop` |
 
 ```ts
 client.on("open", () => {});

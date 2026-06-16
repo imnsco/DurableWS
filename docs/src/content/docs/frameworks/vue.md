@@ -1,10 +1,10 @@
 ---
 title: Vue
-description: The useWebSocket composable — reactive DurableWS state for Vue 3.
+description: The useWebSocket composable, reactive DurableWS state for Vue 3.
 ---
 
 DurableWS ships a first-class Vue 3 composable in the box: `durablews/vue`.
-No extra package — Vue is an *optional* peer dependency, so installing
+No extra package, Vue is an *optional* peer dependency, so installing
 `durablews` without Vue never warns, and the composable only loads when you
 import it.
 
@@ -49,7 +49,7 @@ and `state` walks through `reconnecting` so your UI can show it.
 | `send` / `connect` / `close` | functions | Proxies to the client |
 | `client` | `WebSocketClient` | The full client, for everything else (`on()`, `use()`, …) |
 
-`lastMessage` keeps only the latest message — DurableWS never accumulates
+`lastMessage` keeps only the latest message, DurableWS never accumulates
 message history. To process every message, handle the event on the client:
 
 ```ts
@@ -62,7 +62,7 @@ client.on("message", (msg) => {
 ## Typed messages
 
 Pass a [Standard Schema](https://standardschema.dev) (zod, valibot, arktype, …)
-and `lastMessage` is fully typed — plus every inbound message is validated at
+and `lastMessage` is fully typed, plus every inbound message is validated at
 runtime:
 
 ```vue
@@ -83,11 +83,11 @@ const { lastMessage } = useWebSocket({
 ## Sharing one connection across components
 
 Pass an **existing client** instead of a config and the composable only
-observes it — it never connects or closes a client it was handed. This is the
+observes it, it never connects or closes a client it was handed. This is the
 pattern for an app-wide connection used by many components:
 
 ```ts
-// src/ws.ts — the app owns this client
+// src/ws.ts, the app owns this client
 import { defineClient } from "durablews";
 
 export const ws = defineClient({ url: "wss://example.com/socket" });

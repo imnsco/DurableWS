@@ -1,15 +1,15 @@
 ---
 title: Drop-in compat
-description: A WebSocket-shaped class over the durable core — durablews/compat.
+description: A WebSocket-shaped class over the durable core, durablews/compat.
 ---
 
 `durablews/compat` exports a class shaped like the native `WebSocket`, with
 the durable core underneath: automatic reconnection with full-jitter backoff,
 bounded queueing, opt-in heartbeat. It exists for two audiences:
 
-1. **App code that constructs sockets directly** — the
+1. **App code that constructs sockets directly**: the
    `reconnecting-websocket` / `partysocket` crowd. Migration is one line.
-2. **Libraries with a `webSocketImpl`-style injection point** — graphql-ws,
+2. **Libraries with a `webSocketImpl`-style injection point**: graphql-ws,
    y-websocket, realtime SDKs. Inject durability into tools that never learn
    durablews exists.
 
@@ -48,11 +48,11 @@ const provider = new WebsocketProvider(url, room, doc, {
 ```
 
 :::caution[The layering rule: one reconnector per stack]
-Libraries with **stateful sync protocols** — y-websocket, graphql-ws —
+Libraries with **stateful sync protocols** (y-websocket, graphql-ws)
 implement their *own* reconnection, because they must redo a handshake on
 every new connection. Injecting a socket that also reconnects puts two
 recovery layers in a fight (the library abandons the socket on `close` while
-the socket revives itself — zombie connections). When the consuming library
+the socket revives itself, zombie connections). When the consuming library
 reconnects, hand it a wrapper with ours off:
 
 ```ts
@@ -63,8 +63,8 @@ class PipeSocket extends DurableWebSocket {
 }
 ```
 
-Compat's sweet spot is code that treats the socket as a **plain pipe** —
-hand-rolled WebSocket code, thin SDKs without recovery logic — where the
+Compat's sweet spot is code that treats the socket as a **plain pipe**,
+hand-rolled WebSocket code, thin SDKs without recovery logic, where the
 one-line swap delivers the full durability story. See the
 [collab-notepad example](https://github.com/imnsco/DurableWS/tree/main/examples/collab-notepad).
 :::
@@ -72,7 +72,7 @@ one-line swap delivers the full durability story. See the
 ## Tuning the durability
 
 The third constructor argument takes the durablews config (everything except
-`codec` and `schema` — compat is deliberately wire-faithful, byte in, byte
+`codec` and `schema`, compat is deliberately wire-faithful, byte in, byte
 out):
 
 ```ts
@@ -97,7 +97,7 @@ deviations, exhaustively:
 
 | Behavior | Native `WebSocket` | `durablews/compat` |
 | --- | --- | --- |
-| `readyState` across disconnects | one-shot: never leaves `CLOSED` | returns to `CONNECTING` during automatic reconnects — the entire point |
+| `readyState` across disconnects | one-shot: never leaves `CLOSED` | returns to `CONNECTING` during automatic reconnects, the entire point |
 | `send()` while `CONNECTING` | throws `InvalidStateError` | **queues**, flushes in order on open |
 | `close` events | once, at the end | once per dropped connection (each followed by reconnection) |
 | `protocol` / `extensions` | negotiated values | always `""` |
@@ -106,5 +106,5 @@ deviations, exhaustively:
 | `send()` after `close()` | silently discarded | silently discarded (matched) |
 
 If one of these deviations matters to your integration, use the primary
-[`defineClient`](/reference/api/) API instead — it doesn't pretend to be a
+[`defineClient`](/reference/api/) API instead, it doesn't pretend to be a
 one-shot socket, so none of these tensions exist there.
