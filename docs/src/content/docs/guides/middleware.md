@@ -126,6 +126,30 @@ throws or rejects, that one message is not sent and the failure surfaces as an
 `error` event (later messages are unaffected), per the outbound failure
 semantics above.
 
+### `logger`
+
+Logs every message in both directions without altering it.
+
+```ts
+import { logger } from "durablews/middleware";
+
+client.use(
+    logger({
+        redact: (data) => ({
+            ...(data as Record<string, unknown>),
+            token: "[redacted]"
+        })
+    })
+);
+```
+
+Each entry carries the `direction`, the `data` (after `redact`), a
+`timestamp`, and the connection `state`. The production-grade part is
+`redact`: it scrubs secrets and PII *for the logs only*, so the wire and your
+handlers always see the real message and an auth token never lands in a log.
+Defaults: log to `console.debug`, both directions, no redaction. Narrow with
+`direction: "inbound" | "outbound"`.
+
 ## Writing middleware once, typing it
 
 Middleware is typed by the client's generics: inbound contexts carry `TIn`,
