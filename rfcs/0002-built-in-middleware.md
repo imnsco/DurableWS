@@ -94,6 +94,12 @@ client.use({ inbound, outbound });              // one logical middleware,
                                                 // both directions
 ```
 
+(Keys are the full words, not `{ in, out }`: `in` is a reserved word —
+illegal as a destructuring binding, forcing `{ in: inbound }` renames —
+and the names match the exported type vocabulary. The Express `req`/`res`
+brevity applies to callback *parameters*, which here are already terse:
+`ctx`, `next`.)
+
 - **Inbound** (`Middleware<TIn>`) runs per inbound message, in registration
   order, *after* `codec.decode` and schema validation — so middleware only
   ever sees decoded, valid data. `ctx.data` is the message (reassign to
@@ -179,8 +185,9 @@ core/vue/react/compat.
 
 ## 6. The in-box set
 
-Each is a factory (§4.4). Config shapes are illustrative, to be finalized
-in implementation.
+Three middleware, each a factory (§4.4); config shapes are illustrative,
+to be finalized in implementation. §6.4 covers outbound flow control,
+which review moved *out* of the first in-box set.
 
 ### 6.1 `auth` — outbound
 
@@ -226,17 +233,28 @@ the more valuable half. `dedup` drops inbound messages whose key was seen
 within a **bounded** window (count or time — never unbounded memory).
 Both need a `key` extractor because messages have no built-in id.
 
-### 6.4 `rateLimit` — outbound (candidate)
+### 6.4 Outbound flow control (open — not committed in-box)
 
-```ts
-rateLimit({ rate, interval?, burst? })   // token bucket, order-preserving
-```
+The fourth slot was `rateLimit`, but it conflated three mechanisms, only
+one of which is a universal production concern:
 
-A global, order-preserving throttle — the *one* pacing form that is
-legitimately middleware (§9 sanctions "a semaphore/throttle that awaits a
-send slot, preserving order"; per-key debounce/batch reorder and stay
-send-wrappers). Open question §8: ship in-box for 2.x, or as an example
-first? It is the least universally needed of the four.
+- **Rate limiting** (token bucket, messages/interval) — matters only when
+  the *server* enforces a rate and drops offenders. Niche.
+- **Concurrency semaphore** (bound in-flight count) — on a fire-and-forget
+  socket there is no per-message completion to count down on, so a
+  semaphore only has meaning with **acks** (→ RFC 0003); without them it
+  collapses into backpressure.
+- **Backpressure** (gate on `bufferedAmount`) — stop feeding the socket
+  when its send buffer backs up faster than the network drains. *This* is
+  the real one: it bounds client memory and latency, and it is the
+  **open-socket counterpart to the disconnected queue** (bounded,
+  drop-oldest) DurableWS already ships. Today the open-socket side is
+  unmanaged.
+
+All three are order-preserving, so §9 permits them as middleware — but
+backpressure needs a seam core does not expose yet: `bufferedAmount`
+exists only as a compat stub. So this is a design fork (§8), not a drop-in
+middleware, and the first in-box release is the **three** above.
 
 ## 7. Inclusion & exclusion rationale
 
@@ -258,7 +276,12 @@ cache, channels, codecs, AsyncAPI (§3).
   (`validate({ schema })`)? Recommendation: **middleware first** — it needs
   no core change and proves the pattern; promote to a core option only on
   demand. (This is the M5 "outbound validation" roadmap item.)
-- **`rateLimit` in-box or example** for the first release of the pack (§6.4).
+- **Outbound flow control (§6.4).** The real concern is *backpressure*
+  (gate on `bufferedAmount`), not clock-based rate limiting or a
+  concurrency semaphore (which needs acks). Fork: expose `bufferedAmount`
+  as a small core seam and ship backpressure as middleware on top, or make
+  it first-class core, symmetric with the disconnected queue? Out of the
+  first in-box set either way.
 - **Naming.** `Middleware` (inbound) vs `OutboundMiddleware` is an
   asymmetric pair — add an `InboundMiddleware` alias for symmetry? And do
   third-party middleware keep `durablews-plugin-*` or get
